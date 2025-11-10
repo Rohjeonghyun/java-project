@@ -7,6 +7,7 @@ public class Text {
 		// TODO Auto-generated method stub
 		System.out.print("test");
 		System.out.print("----------------");
+		System.out.print("----------------");
 		
 
 	}
