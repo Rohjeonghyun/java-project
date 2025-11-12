@@ -1,12 +1,12 @@
 package calendars;
 
-public class test_calendar {
+import javax.swing.*;
+import java.awt.*;
 
-	public static void main(String[] args) {
-		// TODO Auto-generated method stub
-		System.out.print("test");
-		System.out.print("----------------");
-		
-	}
-
+public class CalendarPanel extends JPanel {
+    public CalendarPanel() {
+        setLayout(new BorderLayout());
+        add(new JLabel("CalendarPanel 화면"), BorderLayout.NORTH);
+        
+    }
 }
