@@ -1,10 +1,15 @@
 package main;
 
-import javax.swing.*;
-import java.awt.*;
-import todo.TodoPanel;
+import java.awt.BorderLayout;
+
+import javax.swing.JFrame;
+import javax.swing.JTabbedPane;
+import javax.swing.SwingUtilities;
+
+import Mypage.MypagePanel;
 import calendars.CalendarPanel;
-import mypage.MypagePanel;
+import diary.diary;
+import todo.TodoPanel;
 
 
 
@@ -16,6 +21,8 @@ public class TestFile extends JFrame {
         tabs.addTab("Todo",     new TodoPanel());
         tabs.addTab("Calendar", new CalendarPanel());
         tabs.addTab("MyPage",   new MypagePanel());
+        tabs.addTab("diary",   new diary());
+        
 
         getContentPane().add(tabs, BorderLayout.CENTER);
         setTitle("Diary Project");

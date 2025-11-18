@@ -1,4 +1,4 @@
-package mypage;
+package Mypage;
 
 import javax.swing.*;
 import java.awt.*;

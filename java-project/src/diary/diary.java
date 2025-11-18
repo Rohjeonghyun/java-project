@@ -1,17 +1,13 @@
-package test1234;
+package diary;
 
 import java.awt.*;
 import javax.swing.*;
 import javax.swing.border.TitledBorder;
 import java.awt.event.*;
 
-/**
- * 다이어리 페이지 JFrame (GUI 뼈대)
- * GUI 클래스와 main 실행 메서드를 하나로 통합
- */
-public class diary extends JFrame implements ActionListener {
+// 1. JFrame 대신 JPanel을 상속받도록 변경
+public class diary extends JPanel implements ActionListener {
 
-    // --- 1. GUI 컴포넌트 필드 ---
     private long currentUserId;
 
     JTextField tfDate;
@@ -22,18 +18,14 @@ public class diary extends JFrame implements ActionListener {
     JTextField tfImagePath;
     JButton btnSave;
 
-    // --- 2. 생성자 (GUI 레이아웃 설정) ---
+    // 2. TestFile에서 new diary()로 호출할 수 있도록 기본 생성자 추가
+    public diary() {
+        this("나의 다이어리", 1001L);
+    }
+
     public diary(String title, long userId) {
-        super(title);
         this.currentUserId = userId;
-
-        setTitle(title + " (User: " + userId + ")");
-        setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-        setSize(500, 600);
-        setLocationRelativeTo(null);
-
-        Container ct = getContentPane();
-        ct.setLayout(new BorderLayout());
+        this.setLayout(new BorderLayout()); // ct.setLayout -> this.setLayout
 
         JPanel pTop = new JPanel(new FlowLayout(FlowLayout.LEFT));
         pTop.setBorder(new TitledBorder("날짜 선택 (YYYY-MM-DD)"));
@@ -47,7 +39,7 @@ public class diary extends JFrame implements ActionListener {
         pTop.add(btnLoad);
         pTop.add(btnDelete);
 
-        ct.add(pTop, BorderLayout.NORTH);
+        this.add(pTop, BorderLayout.NORTH); // ct.add -> this.add
 
         JPanel pCenter = new JPanel(new BorderLayout(10, 10));
         pCenter.setBorder(new TitledBorder("일기 작성"));
@@ -67,7 +59,7 @@ public class diary extends JFrame implements ActionListener {
         JScrollPane scrollPane = new JScrollPane(taContent);
         pCenter.add(scrollPane, BorderLayout.CENTER);
 
-        ct.add(pCenter, BorderLayout.CENTER);
+        this.add(pCenter, BorderLayout.CENTER); // ct.add -> this.add
 
         JPanel pBottom = new JPanel(new BorderLayout(10, 10));
         pBottom.setBorder(new TitledBorder("부가 정보"));
@@ -86,15 +78,13 @@ public class diary extends JFrame implements ActionListener {
         btnSave.setFont(new Font("맑은 고딕", Font.BOLD, 14));
         pBottom.add(btnSave, BorderLayout.SOUTH);
 
-        ct.add(pBottom, BorderLayout.SOUTH);
+        this.add(pBottom, BorderLayout.SOUTH); // ct.add -> this.add
 
-        // --- 이벤트 리스너 등록 ---
         btnLoad.addActionListener(this);
         btnSave.addActionListener(this);
         btnDelete.addActionListener(this);
     }
 
-    // --- 3. 이벤트 처리 메서드 ---
     @Override
     public void actionPerformed(ActionEvent ae) {
         String cmd = ae.getActionCommand();
@@ -112,12 +102,12 @@ public class diary extends JFrame implements ActionListener {
             tfWeather.setText("맑음");
             tfTags.setText("DB태그1, DB태그2");
             tfImagePath.setText("/img/db_image.png");
-            JOptionPane.showMessageDialog(this, entryDate + " 일기를 불러왔습니다. (DB 연동 필요)");
+            JOptionPane.showMessageDialog(this, entryDate + " 일기를 불러왔습니다.");
 
         } else if (cmd.equals("일기 저장하기")) {
             String title = tfTitle.getText();
             String content = taContent.getText();
-            JOptionPane.showMessageDialog(this, entryDate + " 일기를 저장합니다. (DB 연동 필요)");
+            JOptionPane.showMessageDialog(this, entryDate + " 일기를 저장합니다.");
 
         } else if (cmd.equals("삭제하기")) {
             int result = JOptionPane.showConfirmDialog(this,
@@ -125,28 +115,17 @@ public class diary extends JFrame implements ActionListener {
                     "삭제 확인", JOptionPane.YES_NO_OPTION);
 
             if (result == JOptionPane.YES_OPTION) {
-                JOptionPane.showMessageDialog(this, entryDate + " 일기를 삭제했습니다. (DB 연동 필요)");
+                JOptionPane.showMessageDialog(this, entryDate + " 일기를 삭제했습니다.");
                 clearFields();
             }
         }
     }
 
-    // --- 4. 헬퍼 메서드 ---
     private void clearFields() {
         tfTitle.setText("");
         taContent.setText("");
         tfWeather.setText("");
         tfTags.setText("");
         tfImagePath.setText("");
-    }
-
-    // --- 5. 실행용 main 메서드 (기존 DiaryMain의 역할) ---
-    public static void main(String[] args) {
-        // Swing 실행은 이벤트 디스패치 스레드에서 수행해야 안전함
-        SwingUtilities.invokeLater(() -> {
-            // 현재 클래스(diary)의 인스턴스를 생성
-            diary diaryFrame = new diary("나의 다이어리", 1001L);
-            diaryFrame.setVisible(true);
-        });
     }
 }
