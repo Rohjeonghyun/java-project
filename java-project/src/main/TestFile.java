@@ -6,7 +6,7 @@ import javax.swing.JFrame;
 import javax.swing.JTabbedPane;
 import javax.swing.SwingUtilities;
 
-import Mypage.MypagePanel;
+import Mypage.MyPageFrame;
 import calendars.CalendarPanel;
 import diary.diary;
 import todo.TodoPanel;
@@ -20,7 +20,7 @@ public class TestFile extends JFrame {
 
         tabs.addTab("Todo",     new TodoPanel());
         tabs.addTab("Calendar", new CalendarPanel());
-        tabs.addTab("MyPage",   new MypagePanel());
+        tabs.addTab("MyPage",   new MyPageFrame());
         tabs.addTab("diary",   new diary());
         
 
