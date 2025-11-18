@@ -18,10 +18,10 @@ private JCheckBox cbShowCurrentPw;
 private JCheckBox cbShowNewPw;
 private char defaultEchoChar;
 
-public ChangePasswordFrame(JFrame owner) {
-   setTitle("Change Password");
-   setSize(450, 250);
-   setLocationRelativeTo(owner);
+public ChangePasswordFrame(Component owner) {
+    setTitle("Change Password");
+    setSize(450, 250);
+    setLocationRelativeTo(owner);
    setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
 
    JPanel panel = new JPanel(new GridBagLayout());

@@ -15,7 +15,7 @@ private JCheckBox cbEnableDailyReminder;
 private JSpinner spHour;
 private JSpinner spMinute;
 
-public ReminderFrame(JFrame owner) {
+public ReminderFrame(Component owner) {
    setTitle("Reminder Settings");
    setSize(400, 300);
    setLocationRelativeTo(owner);

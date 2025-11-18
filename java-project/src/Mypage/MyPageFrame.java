@@ -5,7 +5,7 @@ import java.awt.event.*;
 import java.awt.geom.Ellipse2D;
 import javax.swing.*;
 
-public class MyPageFrame extends JFrame implements ActionListener {
+public class MyPageFrame extends JPanel implements ActionListener {
 
     private JPanel profilePanel;
     private Image profileImage;
@@ -19,15 +19,14 @@ public class MyPageFrame extends JFrame implements ActionListener {
     private JButton btnDeleteAccount;
 
     public MyPageFrame() {
-        setTitle("My Page");
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(360, 620);
-        setLocationRelativeTo(null);
-
+    	
         // 전체 배경
         JPanel root = new JPanel(new BorderLayout());
         root.setBackground(Color.WHITE);
-        add(root);
+
+        // ★ 여기서 add(root); → this에 레이아웃 설정하고 add해야 함
+        setLayout(new BorderLayout());
+        add(root, BorderLayout.CENTER);
 
         // 가운데 세로 레이아웃 영역
         JPanel center = new JPanel();
@@ -196,6 +195,13 @@ public class MyPageFrame extends JFrame implements ActionListener {
     }
 
     public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> new MyPageFrame().setVisible(true));
+    	SwingUtilities.invokeLater(() -> {
+            JFrame frame = new JFrame("My Page Test");
+            frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+            frame.setSize(360, 620);
+            frame.setLocationRelativeTo(null);
+            frame.setContentPane(new MyPageFrame());
+            frame.setVisible(true);
+        });
     }
 }

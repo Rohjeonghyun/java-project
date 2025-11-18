@@ -11,7 +11,7 @@ import javax.swing.border.TitledBorder;
 */
 public class StatsFrame extends JFrame {
 
-public StatsFrame(JFrame owner) {
+public StatsFrame(Component owner) {
    setTitle("My Stats");
    setSize(500, 500);
    setLocationRelativeTo(owner);    // 메인창 기준 중앙

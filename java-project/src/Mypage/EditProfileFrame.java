@@ -14,7 +14,7 @@ public class EditProfileFrame extends JFrame {
 private JTextField txtUserName;
 private JTextField txtBirthDate;
 
-public EditProfileFrame(JFrame owner) {
+public EditProfileFrame(Component  owner) {
    setTitle("Edit Profile");
    setSize(400, 250);
    setLocationRelativeTo(owner);
