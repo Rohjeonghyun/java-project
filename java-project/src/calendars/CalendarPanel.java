@@ -8,11 +8,7 @@ import java.awt.event.ActionListener;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 
-/**
- * JTabbedPane에 표시될 메인 캘린더 패널입니다.
- * BorderLayout을 사용하여 상단(NORTH)에 네비게이션 패널을,
- * 중앙(CENTER)에 실제 달력 그리드를 배치합니다.
- */
+
 public class CalendarPanel extends JPanel implements ActionListener {
 
     // --- UI 컴포넌트 ---
@@ -26,9 +22,7 @@ public class CalendarPanel extends JPanel implements ActionListener {
     private Calendar cal; // 현재 달력 정보를 가진 Calendar 객체
     private SimpleDateFormat sdf = new SimpleDateFormat("yyyy년 MM월");
 
-    /**
-     * CalendarPanel 생성자
-     */
+    
     public CalendarPanel() {
         // 1. 메인 패널 레이아웃 설정 (BorderLayout)
         setLayout(new BorderLayout(10, 10)); // 상하좌우 10픽셀 간격
@@ -45,12 +39,11 @@ public class CalendarPanel extends JPanel implements ActionListener {
         JPanel centerPanel = buildCalendarGridPanel();
         add(centerPanel, BorderLayout.CENTER);
 
-        // 4. 달력 UI 업데이트
         updateCalendar();
     }
 
-    /**
-     * 상단의 '이전', '년/월', '다음' 버튼이 있는 네비게이션 패널을 생성합니다.
+    /*
+     상단의 '이전', '년/월', '다음' 버튼이 있는 네비게이션 패널을 생성
      */
     private JPanel buildNavigationPanel() {
         JPanel panel = new JPanel(new BorderLayout());
@@ -73,8 +66,8 @@ public class CalendarPanel extends JPanel implements ActionListener {
         return panel;
     }
 
-    /**
-     * 중앙의 '요일'과 '날짜' 그리드를 포함하는 메인 캘린더 패널을 생성합니다.
+    /*
+      중앙의 '요일'과 '날짜' 그리드를 포함하는 메인 캘린더 패널을 생성
      */
     private JPanel buildCalendarGridPanel() {
         // 요일과 날짜 그리드를 담을 전체 컨테이너
@@ -95,7 +88,7 @@ public class CalendarPanel extends JPanel implements ActionListener {
         }
         panel.add(daysOfWeekPanel, BorderLayout.NORTH);
 
-     // 3b. 날짜 그리드 패널 (GridLayout 6x7)
+     // 날짜 그리드 패널 (GridLayout 6x7)
         daysGridPanel = new JPanel(new GridLayout(6, 7, 5, 5)); // 6주, 7일
         daysGridPanel.setBackground(Color.WHITE);
         
@@ -103,10 +96,8 @@ public class CalendarPanel extends JPanel implements ActionListener {
             dayButtons[i] = new JButton("");
             dayButtons[i].setFont(new Font("맑은 고딕", Font.PLAIN, 16));
             
-            // ▼▼▼ 이 두 줄을 추가하세요 ▼▼▼
             dayButtons[i].setHorizontalAlignment(SwingConstants.LEFT); // 수평 정렬을 왼쪽으로
             dayButtons[i].setVerticalAlignment(SwingConstants.TOP);   // 수직 정렬을 위쪽으로
-            // ▲▲▲ 여기까지 추가 ▲▲▲
 
             // 버튼의 여백을 줄여 숫자가 잘 보이게 함
             dayButtons[i].setMargin(new Insets(2, 2, 2, 2)); 
