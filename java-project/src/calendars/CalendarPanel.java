@@ -1,13 +1,23 @@
 package calendars;
 
-import javax.swing.*;
-import javax.swing.border.EmptyBorder;
-import java.awt.*;
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Font;
+import java.awt.GridLayout;
+import java.awt.Insets;
+import java.awt.Window;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
+import java.util.Vector;
 
+import javax.swing.JButton;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+import javax.swing.SwingConstants;
+import javax.swing.SwingUtilities;
+import javax.swing.border.EmptyBorder;
 
 public class CalendarPanel extends JPanel implements ActionListener {
 
@@ -21,9 +31,10 @@ public class CalendarPanel extends JPanel implements ActionListener {
     // --- 달력 로직 ---
     private Calendar cal; // 현재 달력 정보를 가진 Calendar 객체
     private SimpleDateFormat sdf = new SimpleDateFormat("yyyy년 MM월");
-
+    private Vector<String> categories;
     
-    public CalendarPanel() {
+    public CalendarPanel(Vector<String> categories) {
+    	this.categories = categories;
         // 1. 메인 패널 레이아웃 설정 (BorderLayout)
         setLayout(new BorderLayout(10, 10)); // 상하좌우 10픽셀 간격
         setBackground(Color.WHITE);
@@ -99,11 +110,11 @@ public class CalendarPanel extends JPanel implements ActionListener {
             dayButtons[i].setHorizontalAlignment(SwingConstants.LEFT); // 수평 정렬을 왼쪽으로
             dayButtons[i].setVerticalAlignment(SwingConstants.TOP);   // 수직 정렬을 위쪽으로
 
-            // 버튼의 여백을 줄여 숫자가 잘 보이게 함
+            // 버튼의 여백을 줄이
             dayButtons[i].setMargin(new Insets(2, 2, 2, 2)); 
             dayButtons[i].setFocusable(false); // 포커스 테두리 제거
             dayButtons[i].setBackground(Color.WHITE);
-            // dayButtons[i].addActionListener(this); // (나중에 날짜별 이벤트 추가시)
+            dayButtons[i].addActionListener(this);
             daysGridPanel.add(dayButtons[i]);
         }
         panel.add(daysGridPanel, BorderLayout.CENTER);
@@ -111,27 +122,58 @@ public class CalendarPanel extends JPanel implements ActionListener {
         return panel;
     }
 
-    /**
-     * '이전', '다음' 버튼 클릭 시 호출되는 이벤트 처리 메소드
+    /*
+     '이전', '다음' 버튼 클릭 시 호출되는 이벤트 처리 메소드
      */
     @Override
     public void actionPerformed(ActionEvent e) {
-        if (e.getSource() == prevButton) {
+        Object source = e.getSource();
+
+        if (source == prevButton) {
             cal.add(Calendar.MONTH, -1); // 현재 날짜에서 1달을 뺀다
-        } else if (e.getSource() == nextButton) {
+            updateCalendar(); // 달력 UI를 새로고침
+        } else if (source == nextButton) {
             cal.add(Calendar.MONTH, +1); // 현재 날짜에서 1달을 더한다
+            updateCalendar(); // 달력 UI를 새로고침
+        } else {
+            // [이 부분이 날짜 버튼을 처리합니다]
+            for (int i = 0; i < 42; i++) {
+                if (source == dayButtons[i]) {
+                    // 버튼에 텍스트가 있는지(활성화된 날짜인지) 확인
+                    String dateText = dayButtons[i].getText();
+                    if (!dateText.isEmpty()) {
+                        // 클릭된 날짜(년, 월, 일) 정보로 새 창을 엽니다.
+                        int day = Integer.parseInt(dateText);
+                        int year = cal.get(Calendar.YEAR);
+                        int month = cal.get(Calendar.MONTH) + 1; // Calendar.MONTH는 0부터 시작
+                        
+                        openSchedule(year, month, day);
+                    }
+                    break; // 해당 버튼을 찾았으므로 루프 중단
+                }
+            }
         }
-        updateCalendar(); // 달력 UI를 새로고침
     }
 
-    /**
-     * cal 객체(현재 년/월)를 기준으로 달력의 숫자와 UI를 업데이트합니다.
+    private void openSchedule(int year, int month, int day) {
+    	Window parentFrame = SwingUtilities.getWindowAncestor(this);
+    	String title = String.format("%d년 %d월 %d일 일정 추가", year, month, day);
+    	Calendar selecteDate = (Calendar) cal.clone();
+    	selecteDate.set(Calendar.DAY_OF_MONTH, day);
+    	ScheduleDialog scheduleDialog = new ScheduleDialog(parentFrame, title, selecteDate, this.categories);
+    	SwingUtilities.invokeLater(() -> {
+            scheduleDialog.setVisible(true);
+        });
+    }
+    
+    /*
+     cal 객체(현재 년/월)를 기준으로 달력의 숫자와 UI를 업데이트합니다.
      */
     private void updateCalendar() {
-        // 1. "YYYY년 MM월" 레이블 업데이트
+        // "YYYY년 MM월" 레이블 업데이트
         yearMonthLabel.setText(sdf.format(cal.getTime()));
 
-        // 2. 모든 날짜 버튼 초기화
+        // 모든 날짜 버튼 초기화
         for (int i = 0; i < 42; i++) {
             dayButtons[i].setText("");
             dayButtons[i].setEnabled(false); // 비활성화
@@ -139,13 +181,13 @@ public class CalendarPanel extends JPanel implements ActionListener {
             dayButtons[i].setForeground(Color.BLACK);
         }
 
-        // 3. 이번 달의 시작 요일과 마지막 날 계산
+        // 이번 달의 시작 요일과 마지막 날 계산
         Calendar tempCal = (Calendar) cal.clone(); // 계산용 임시 복사본
         tempCal.set(Calendar.DAY_OF_MONTH, 1); // 날짜를 1일로 설정
         int firstDayOfWeek = tempCal.get(Calendar.DAY_OF_WEEK); // 1일의 요일 (1:일, 2:월, ...)
         int totalDaysInMonth = tempCal.getActualMaximum(Calendar.DAY_OF_MONTH); // 이 달의 마지막 날
 
-        // 4. 날짜 버튼에 숫자 채우기
+        // 날짜 버튼에 숫자
         int startIndex = firstDayOfWeek - 1; // 1일이 시작될 버튼 인덱스 (0부터 시작)
         for (int i = 0; i < totalDaysInMonth; i++) {
             int buttonIndex = startIndex + i;
@@ -153,13 +195,12 @@ public class CalendarPanel extends JPanel implements ActionListener {
             dayButtons[buttonIndex].setEnabled(true); // 버튼 활성화
 
             // (일, 토요일 색상 변경)
-            int dayOfWeek = (buttonIndex % 7); // 0:일, 1:월, ..., 6:토
+            int dayOfWeek = (buttonIndex % 7); // 0:일, 1:월 2:화, 3:수, 4:목, 5:금, 6:토
             if (dayOfWeek == 0) dayButtons[buttonIndex].setForeground(Color.RED);
             else if (dayOfWeek == 6) dayButtons[buttonIndex].setForeground(Color.BLUE);
             else dayButtons[buttonIndex].setForeground(Color.BLACK);
         }
         
-        // 5. "오늘" 날짜 하이라이트
         Calendar today = Calendar.getInstance();
         if (cal.get(Calendar.YEAR) == today.get(Calendar.YEAR) &&
             cal.get(Calendar.MONTH) == today.get(Calendar.MONTH)) {
