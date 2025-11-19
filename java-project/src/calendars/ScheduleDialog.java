@@ -23,19 +23,19 @@ import javax.swing.border.EmptyBorder;
 
 public class ScheduleDialog extends JDialog implements ActionListener {
     private JTextField titleField;
-    private JComboBox<String> categoryCombo;
+    private JComboBox<CategoryItem> categoryCombo;
     private JComboBox<String> startHourCombo, startMinCombo;
     private JComboBox<String> endHourCombo, endMinCombo;
     private JButton saveButton, cancelButton, manageCategoryButton;
 
-    private Vector<String> categories;
+    private Vector<CategoryItem> categories;
     private Calendar selectedDate; // 선택된 날짜 (년, 월, 일 정보)
     
  // 데이터를 저장할 대상 리스트
     private Vector<ScheduleItem> targetVector;
     private DefaultListModel<ScheduleItem> targetUiModel;
 
-    public ScheduleDialog(Window parent, String title, Calendar selectedDate, Vector<String> categories,
+    public ScheduleDialog(Window parent, String title, Calendar selectedDate, Vector<CategoryItem> categories,
     						Vector<ScheduleItem> targetVector, DefaultListModel<ScheduleItem> targetUiModel) {
         super(parent, title, ModalityType.APPLICATION_MODAL);
         this.selectedDate = selectedDate;
@@ -64,6 +64,7 @@ public class ScheduleDialog extends JDialog implements ActionListener {
         JPanel categoryPanel = new JPanel(new BorderLayout(5, 0)); // 콤보박스와 버튼을 담을 서브 패널
         categoryPanel.setBackground(Color.WHITE);
         categoryCombo = new JComboBox<>(categories);
+        categoryCombo.setRenderer(new CategoryRenderer());
         categoryCombo.setLightWeightPopupEnabled(false);
         categoryPanel.add(categoryCombo, BorderLayout.CENTER);
 
@@ -153,13 +154,15 @@ public class ScheduleDialog extends JDialog implements ActionListener {
                 JOptionPane.showMessageDialog(this, "일정 내용을 입력해주세요.");
                 return;
             }
+            CategoryItem selectedCategory = (CategoryItem) categoryCombo.getSelectedItem();
+            String categoryName = (selectedCategory != null) ? selectedCategory.getName() : "미지정";
+            Color categoryColor = (selectedCategory != null) ? selectedCategory.getColor() : Color.LIGHT_GRAY;
             
-            String category = (String) categoryCombo.getSelectedItem();
             String start = startHourCombo.getSelectedItem() + " " + startMinCombo.getSelectedItem();
             String end = endHourCombo.getSelectedItem() + " " + endMinCombo.getSelectedItem();
 
             // ScheduleItem 객체 생성
-            ScheduleItem newItem = new ScheduleItem(title, category, start, end);
+            ScheduleItem newItem = new ScheduleItem(title, categoryName, start, end, categoryColor);
 
             // 데이터 원본(Vector)과 UI모델(DefaultListModel)에 둘 다 추가
             targetVector.add(newItem);

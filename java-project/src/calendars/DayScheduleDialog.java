@@ -23,13 +23,13 @@ public class DayScheduleDialog extends JDialog implements ActionListener {
     // --- 데이터 ---
     private Calendar selectedDate;
     private Vector<ScheduleItem> dailySchedules; // 해당 날짜의 일정 목록
-    private Vector<String> categories; // 카테고리 목록 (ScheduleDialog에 전달용)
+    private Vector<CategoryItem> categories; // 카테고리 목록 (ScheduleDialog에 전달용)
 
     /**
      * 생성자
      */
     public DayScheduleDialog(Window parent, String title, Calendar selectedDate, 
-                             Vector<ScheduleItem> dailySchedules, Vector<String> categories) {
+                             Vector<ScheduleItem> dailySchedules, Vector<CategoryItem> categories) {
         super(parent, title, ModalityType.APPLICATION_MODAL);
         this.selectedDate = selectedDate;
         this.dailySchedules = dailySchedules;
@@ -53,6 +53,7 @@ public class DayScheduleDialog extends JDialog implements ActionListener {
         
         scheduleList = new JList<>(listModel);
         scheduleList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        scheduleList.setCellRenderer(new ScheduleRenderer());
         
         // 스크롤판에 리스트 추가
         JScrollPane scrollPane = new JScrollPane(scheduleList);
