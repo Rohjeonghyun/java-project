@@ -10,6 +10,8 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Vector;
 
 import javax.swing.JButton;
@@ -32,6 +34,10 @@ public class CalendarPanel extends JPanel implements ActionListener {
     private Calendar cal; // 현재 달력 정보를 가진 Calendar 객체
     private SimpleDateFormat sdf = new SimpleDateFormat("yyyy년 MM월");
     private Vector<String> categories;
+    
+    // 날짜별 일정 목록을 저장할 Map
+    // Key: "yyyy-MM-dd" (날짜 문자열), Value: 그 날의 일정 목록(Vector)
+    private Map<String, Vector<ScheduleItem>> scheduleData = new HashMap<>();
     
     public CalendarPanel(Vector<String> categories) {
     	this.categories = categories;
@@ -157,12 +163,23 @@ public class CalendarPanel extends JPanel implements ActionListener {
 
     private void openSchedule(int year, int month, int day) {
     	Window parentFrame = SwingUtilities.getWindowAncestor(this);
-    	String title = String.format("%d년 %d월 %d일 일정 추가", year, month, day);
+    	// 1. 맵에서 사용할 Key 생성 (예: "2025-11-18")
+        String dateKey = String.format("%04d-%02d-%02d", year, month, day);
+        
+        // 2. 해당 날짜의 일정 리스트 가져오기 (없으면 새로 생성)
+        if (!scheduleData.containsKey(dateKey)) {
+            scheduleData.put(dateKey, new Vector<>());
+        }
+        Vector<ScheduleItem> dailySchedules = scheduleData.get(dateKey);
+        // 3. 다이얼로그 제목
+    	String title = String.format("%d년 %d월 %d일 일정", year, month, day);
+    	// 4. Calendar 객체 생성 (날짜 정보 전달용)
     	Calendar selecteDate = (Calendar) cal.clone();
     	selecteDate.set(Calendar.DAY_OF_MONTH, day);
-    	ScheduleDialog scheduleDialog = new ScheduleDialog(parentFrame, title, selecteDate, this.categories);
+    	
     	SwingUtilities.invokeLater(() -> {
-            scheduleDialog.setVisible(true);
+    		DayScheduleDialog dialog = new DayScheduleDialog(parentFrame, title, selecteDate, dailySchedules, categories);
+            dialog.setVisible(true);
         });
     }
     

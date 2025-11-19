@@ -11,10 +11,12 @@ import java.util.Calendar;
 import java.util.Vector;
 
 import javax.swing.DefaultComboBoxModel;
+import javax.swing.DefaultListModel;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JDialog;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
 import javax.swing.border.EmptyBorder;
@@ -28,11 +30,20 @@ public class ScheduleDialog extends JDialog implements ActionListener {
 
     private Vector<String> categories;
     private Calendar selectedDate; // 선택된 날짜 (년, 월, 일 정보)
+    
+ // 데이터를 저장할 대상 리스트
+    private Vector<ScheduleItem> targetVector;
+    private DefaultListModel<ScheduleItem> targetUiModel;
 
-    public ScheduleDialog(Window parent, String title, Calendar selectedDate, Vector<String> categories) {
+    public ScheduleDialog(Window parent, String title, Calendar selectedDate, Vector<String> categories,
+    						Vector<ScheduleItem> targetVector, DefaultListModel<ScheduleItem> targetUiModel) {
         super(parent, title, ModalityType.APPLICATION_MODAL);
         this.selectedDate = selectedDate;
         this.categories = categories;
+        
+        // [NEW] 저장 대상 받기
+        this.targetVector = targetVector;
+        this.targetUiModel = targetUiModel;
 
         // --- 메인 패널 (BorderLayout) ---
         JPanel mainPanel = new JPanel(new BorderLayout(10, 10));
@@ -53,10 +64,11 @@ public class ScheduleDialog extends JDialog implements ActionListener {
         JPanel categoryPanel = new JPanel(new BorderLayout(5, 0)); // 콤보박스와 버튼을 담을 서브 패널
         categoryPanel.setBackground(Color.WHITE);
         categoryCombo = new JComboBox<>(categories);
+        categoryCombo.setLightWeightPopupEnabled(false);
         categoryPanel.add(categoryCombo, BorderLayout.CENTER);
 
-        manageCategoryButton = new JButton("관리"); // [NEW] "관리" 버튼 생성
-        manageCategoryButton.addActionListener(this); // 이벤트 리스너 연결
+        manageCategoryButton = new JButton("관리");
+        manageCategoryButton.addActionListener(this);
         categoryPanel.add(manageCategoryButton, BorderLayout.EAST);
         
         formPanel.add(categoryPanel);
@@ -105,10 +117,12 @@ public class ScheduleDialog extends JDialog implements ActionListener {
         String[] hours = new String[24];
         for (int i = 0; i < 24; i++) hours[i] = String.format("%02d시", i);
         JComboBox<String> hourCombo = new JComboBox<>(hours);
-
+        hourCombo.setLightWeightPopupEnabled(false);
+        
         String[] minutes = {"00분", "10분", "20분", "30분", "40분", "50분"};
         JComboBox<String> minCombo = new JComboBox<>(minutes);
-
+        minCombo.setLightWeightPopupEnabled(false);
+        
         panel.add(hourCombo);
         panel.add(minCombo);
         return panel;
@@ -133,15 +147,27 @@ public class ScheduleDialog extends JDialog implements ActionListener {
             refreshCategoryCombo();
 
         } else if (source == saveButton) {
-            // "저장" 버튼 클릭 (기존과 동일)
-            System.out.println("--- 저장 버튼 클릭 ---");
-            System.out.println("일정: " + titleField.getText());
-            System.out.println("카테고리: " + categoryCombo.getSelectedItem());
-            // ( ... )
+            // [MODIFIED] 저장 로직: 객체 생성 후 리스트에 추가
+            String title = titleField.getText().trim();
+            if (title.isEmpty()) {
+                JOptionPane.showMessageDialog(this, "일정 내용을 입력해주세요.");
+                return;
+            }
+            
+            String category = (String) categoryCombo.getSelectedItem();
+            String start = startHourCombo.getSelectedItem() + " " + startMinCombo.getSelectedItem();
+            String end = endHourCombo.getSelectedItem() + " " + endMinCombo.getSelectedItem();
+
+            // ScheduleItem 객체 생성
+            ScheduleItem newItem = new ScheduleItem(title, category, start, end);
+
+            // 데이터 원본(Vector)과 UI모델(DefaultListModel)에 둘 다 추가
+            targetVector.add(newItem);
+            targetUiModel.addElement(newItem);
+            
             dispose();
         } else if (source == cancelButton) {
-            // "취소" 버튼 클릭 (기존과 동일)
-            dispose();
+        	dispose();
         }
     }
 
