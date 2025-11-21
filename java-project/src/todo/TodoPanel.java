@@ -5,115 +5,363 @@ import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import calendars.CalendarPanel;
+import calendars.ScheduleItem;
 
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Map;
+import java.util.Vector;
 
 public class TodoPanel extends JPanel {
-
-	// 오늘,내일 모델 
+   
+    // 오늘,내일 모델
     private final DefaultListModel<TodoItem> todoToday = new DefaultListModel<>();
     private final JList<TodoItem> todoListToday = new JList<>(todoToday);
     private final DefaultListModel<TodoItem> todoTomorrow = new DefaultListModel<>();
     private final JList<TodoItem> todoListTomorrow = new JList<>(todoTomorrow);
 
-    // 루틴 모델 
+    // 루틴 모델
     private final DefaultListModel<RoutineItem> routineModel = new DefaultListModel<>();
     private final JList<RoutineItem> routineList = new JList<>(routineModel);
+    
+    // 캘린더 패널 참조 + 날짜 초기화
+    private final CalendarPanel calendarPanel;
+    private final SimpleDateFormat dateKeyFormat =
+            new SimpleDateFormat("yyyy-MM-dd");
 
-   // 전체
-    public TodoPanel() {
+
+    // 전체
+    public TodoPanel(CalendarPanel calendarPanel) {
+        this.calendarPanel = calendarPanel;   
+
         setLayout(new BorderLayout());
         setBackground(Color.white);
-        JComponent homeCard=buildHomeCard();
-        add(homeCard,BorderLayout.CENTER);
+        
+        
+
+        
+        // routine Renderer
+        routineList.setCellRenderer(new RoutineCellRenderer());
+        
+        // Todo Renderer
+        todoListToday.setCellRenderer(new TodoCellRenderer());
+        todoListTomorrow.setCellRenderer(new TodoCellRenderer());
+         
+        // Todo에서 오늘 내일 클릭으로 체크
+        addTodoToggleListener(todoListToday, todoToday);
+        addTodoToggleListener(todoListTomorrow, todoTomorrow);
+
+        // Routine 상태
+        addRoutineStateListener();
+        
+        // 캘린더에서 오늘/내일 일정 불러오기
+        TTC();
+        
+        JComponent homeCard = buildHomeCard();
+        add(homeCard, BorderLayout.CENTER);
+        
     }
-    private JComponent buildHomeCard() {
-    	JTabbedPane tabs=new JTabbedPane();
-    	tabs.setBorder(new EmptyBorder(20,20,20,20));
-    	JPanel todotab=buildTodoTab();
-    	JPanel routinetab=buildRoutineTab();
-    	tabs.addTab("할일",todotab);
-    	tabs.addTab("루틴",routinetab);
-    	return tabs;
-    	
+  //CalendarPanel 쪽에서 호출 메소드
+    public void refreshFromCalendar() {
+       TTC();
+       repaint();
     }
     
-    private JPanel buildTodoTab() {
-    	//틀
-    	JPanel todoTab=new JPanel(new GridLayout(1,2,16,0));
-    	todoTab.setBackground(Color.white);
-    	// 오늘
-    	JPanel today=new JPanel(new BorderLayout(10,10));
-    	today.setBackground(Color.white);
-    	JLabel todayTitle=new JLabel("오늘 할일");
-    	todayTitle.setFont(todayTitle.getFont().deriveFont(Font.BOLD, 16f));
-        today.add(todayTitle, BorderLayout.NORTH);
-        today.add(new JLabel(" UI "),BorderLayout.CENTER);
-        // 내일
-        JPanel tommorw=new JPanel(new BorderLayout(10,10));
-        tommorw.setBackground(Color.white);
-        JLabel tommorowTitle=new JLabel("내일 할 일");
-        tommorowTitle.setFont(tommorowTitle.getFont().deriveFont(Font.BOLD, 16f));
-        tommorw.add(tommorowTitle, BorderLayout.NORTH);
-        tommorw.add(new JLabel("UI "),BorderLayout.CENTER);
-        
-        todoTab.add(today);
-        todoTab.add(tommorw);
-        return todoTab;
-    }
-    // Routine
-    private JPanel buildRoutineTab() {
-    	   JPanel routineTab = new JPanel(new BorderLayout(10, 10));
-           routineTab.setBackground(Color.white);
+ // 캘린더에서 오늘,내일 일정 불러오기
+    private void TTC() {   
 
-           JLabel title = new JLabel("Routine");
-           title.setFont(title.getFont().deriveFont(Font.BOLD, 16f));
-           routineTab.add(title, BorderLayout.NORTH);
+        //  기존 내용 초기화
+        todoToday.clear();
+        todoTomorrow.clear();
 
-           
-           routineTab.add(new JLabel("  UI 자리 "), BorderLayout.CENTER);
+        //  오늘 / 내일 날짜 계산
+        Calendar today = Calendar.getInstance();
+        Calendar tomorrow = (Calendar) today.clone();
+        tomorrow.add(Calendar.DAY_OF_MONTH, 1);   // ★ 여기 고침 (Calendar, DAY_OF_MONTH)
 
-           return routineTab;
-    }
+        //  캘린더의 키 포맷으로 문자열 생성 (yyyy-MM-dd)
+        String todayKey = dateKeyFormat.format(today.getTime());
+        String tomorrowKey = dateKeyFormat.format(tomorrow.getTime());
 
-   
-    private static class TodoItem {
-        String text;    
-        boolean done;   
+        //  CalendarPanel 에서 scheduleData 꺼내오기
+        Map<String, Vector<ScheduleItem>> data = calendarPanel.getScheduleData();
 
-       
-        TodoItem(String t) {
-            this.text = t;
-            this.done = false;
-        }
-        @Override
-        public String toString() {
-            return text;
-        }
-    }
-
-    private enum RoutineState {
-        TODO,  
-        DONE,  
-        SKIP   
-    }
-
-    private static class RoutineItem {
-        String text;          // 루틴 내용
-        RoutineState state = RoutineState.TODO;  
-        RoutineItem(String t) {
-            this.text = t;
-        }
-        void nextState() {
-            switch (state) {
-                case TODO: state = RoutineState.DONE; break;
-                case DONE: state = RoutineState.SKIP; break;
-                case SKIP: state = RoutineState.TODO; break;
+        // 오늘 일정  Todo 모델에 추가
+        Vector<ScheduleItem> todaySchedules = data.get(todayKey);
+        if (todaySchedules != null) {
+            for (ScheduleItem s : todaySchedules) {
+                String text = s.getStartTime() + " " + s.getTitle();
+                todoToday.addElement(new TodoItem(text));
             }
         }
 
-        @Override
-        public String toString() {
-            return text;
+        // 6) 내일 일정 → 내일 Todo 모델에 추가
+        Vector<ScheduleItem> tomorrowSchedules = data.get(tomorrowKey);
+        if (tomorrowSchedules != null) {
+            for (ScheduleItem s : tomorrowSchedules) {
+                String text = s.getStartTime() + " " + s.getTitle();
+                todoTomorrow.addElement(new TodoItem(text));
+            }
         }
     }
+
+    
+    // 상단 Tab
+    private JComponent buildHomeCard() {
+        JTabbedPane tabs = new JTabbedPane();
+        tabs.setBorder(new EmptyBorder(20, 20, 20, 20));
+        JPanel todotab =buildTodoMainTab();
+        JPanel routinetab = buildRoutineTab();
+        tabs.addTab("할일", todotab);
+        tabs.addTab("루틴", routinetab);
+        return tabs;
+    }
+    
+    private JPanel buildTodoMainTab() {
+       
+       JPanel root = new JPanel(new BorderLayout(10, 10));
+        root.setBackground(Color.white);
+        
+       JPanel todoTab=new JPanel(new GridLayout(1,2,16,0));
+       todoTab.setBackground(Color.white);
+       JPanel topBar = new JPanel(new FlowLayout(FlowLayout.RIGHT, 5, 5));
+        topBar.setBackground(Color.white);
+
+        JButton btnRefresh = new JButton("캘린더에서 다시 불러오기");
+        JButton btnMove = new JButton("미완료 내일넘기기");
+
+        topBar.add(btnRefresh);
+        topBar.add(btnMove);
+       
+       
+         // 오늘 내일 날짜 계산
+        Calendar today = Calendar.getInstance();
+        Calendar tomorrow = (Calendar) today.clone();
+        tomorrow.add(Calendar.DAY_OF_MONTH, 1);
+       
+        // 날짜 초기화
+        SimpleDateFormat labelFormat = new SimpleDateFormat("yyyy-MM-dd");
+
+        String todayLabel = "오늘 할 일 (" + labelFormat.format(today.getTime()) + ")";
+        String tomorrowLabel = "내일 할 일 (" + labelFormat.format(tomorrow.getTime()) + ")";
+
+
+        
+        JPanel todayPanel = buildTodoTab(todayLabel, todoListToday, todoToday);
+        JPanel tomorrowPanel = buildTodoTab(tomorrowLabel, todoListTomorrow, todoTomorrow);
+        
+        todoTab.add(todayPanel);
+        todoTab.add(tomorrowPanel);
+       
+        root.add(todoTab,BorderLayout.NORTH);
+        root.add(todoTab,BorderLayout.CENTER);
+        btnRefresh.addActionListener(e -> refreshFromCalendar());
+
+        // 오늘 미완료 → 내일로 넘기기
+        btnRefresh.addActionListener(e -> refreshFromCalendar());
+        btnMove.addActionListener(e -> {
+            moveUnfinishedToTomorrow();
+            // 필요하면 repaint();
+            repaint();
+        });
+
+        return root;
+        
+    }
+    
+    // Todo Tab
+    private JPanel buildTodoTab(String titleText,
+            JList<TodoItem> list,
+            DefaultListModel<TodoItem> model){
+       JPanel todopanel= new JPanel(new BorderLayout(10,10));
+       todopanel.setBackground(Color.white);
+       
+       JLabel title=new JLabel(titleText);
+       title.setFont(title.getFont().deriveFont(Font.BOLD,16f));
+       todopanel.add(title,BorderLayout.NORTH);
+       
+       JScrollPane scrollPane=new JScrollPane(list);
+       todopanel.add(scrollPane,BorderLayout.CENTER);
+       
+        // 아래 입력 + 버튼 영역
+        JPanel inputPanel = new JPanel(new BorderLayout(5, 5));
+        JTextField inputField = new JTextField();
+        JButton addButton = new JButton("추가");
+        JButton deleteButton = new JButton("삭제");
+
+        inputPanel.add(inputField, BorderLayout.CENTER);
+
+        JPanel btnPanel = new JPanel(new GridLayout(1, 2, 5, 0));
+        btnPanel.add(addButton);
+        btnPanel.add(deleteButton);
+        inputPanel.add(btnPanel, BorderLayout.EAST);
+        todopanel.add(inputPanel, BorderLayout.SOUTH);
+        
+        // 추가 버튼 동작
+        addButton.addActionListener(e -> {
+            String text = inputField.getText().trim();
+            if (!text.isEmpty()) {
+                model.addElement(new TodoItem(text));
+                inputField.setText("");
+            }
+        });
+
+        // 삭제 버튼 동작
+        deleteButton.addActionListener(e -> {
+            int idx = list.getSelectedIndex();
+            if (idx >= 0) {
+                model.remove(idx);
+            }
+        });
+        
+        return todopanel;}
+    
+   // Todo완료
+    private void addTodoToggleListener(JList<TodoItem> list, DefaultListModel<TodoItem> model) {
+        list.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                if (e.getClickCount() == 2) {
+                    int idx = list.locationToIndex(e.getPoint());
+                    if (idx >= 0) {
+                        TodoItem item = model.get(idx);
+                        item.done = !item.done;
+                        list.repaint(); // 상태 바뀌었으니 다시 그리기
+                    }
+                }
+            }
+        });
+    }
+    
+    // in루틴 탭
+    private JPanel buildRoutineTab() {
+       JPanel routineTab=new JPanel(new BorderLayout(10,10));
+       routineTab.setBackground(Color.white);
+       
+       JLabel title=new JLabel("루틴");
+       title.setFont(title.getFont().deriveFont(Font.BOLD,16f));
+       routineTab.add(title,BorderLayout.NORTH);
+       
+       JScrollPane scroll=new JScrollPane(routineList);
+       routineTab.add(scroll,BorderLayout.CENTER);
+       
+       JPanel bottom=new JPanel(new BorderLayout(5,5));
+       JTextField inputField= new JTextField();
+       JButton addButton=new JButton("추가");
+       
+        bottom.add(inputField, BorderLayout.CENTER);
+         bottom.add(addButton, BorderLayout.EAST);
+       
+       routineTab.add(bottom, BorderLayout.SOUTH);
+
+        addButton.addActionListener(e -> {
+            String text = inputField.getText().trim();
+            if (!text.isEmpty()) {
+                routineModel.addElement(new RoutineItem(text));
+                inputField.setText("");
+            }
+        });
+
+        return routineTab;
+       }
+    // 루틴상태 변경리스너
+    private void addRoutineStateListener() {
+       routineList.addMouseListener(new MouseAdapter() {
+          @Override
+          public void mouseClicked(MouseEvent e) {
+             int idx=routineList.locationToIndex(e.getPoint());
+             if(idx>=0) {
+                RoutineItem item=routineModel.get(idx);
+                item.nextState();
+                    routineList.repaint();
+             }
+          }
+          
+       });
+    }
+    // 미완료 다음날로
+    public void moveUnfinishedToTomorrow() {
+        // 뒤에서부터 지우기 (인덱스 꼬임 방지)
+        for (int i = todoToday.size() - 1; i >= 0; i--) {
+            TodoItem item = todoToday.get(i);
+            if (!item.done) {            // 완료 안 된 것만
+                item.over = true;     // 밀린 할 일 표시
+                todoTomorrow.addElement(item); // 내일 리스트로 옮기고
+                todoToday.remove(i);           // 오늘에서는 삭제
+            }
+        }
+    }
+    
+    private static class TodoCellRenderer extends DefaultListCellRenderer{
+       @Override
+       public Component getListCellRendererComponent(
+                JList<?> list,
+                Object value,
+                int index,
+                boolean isSelected,
+                boolean cellHasFocus) {
+
+            JLabel label = (JLabel) super.getListCellRendererComponent(
+                    list, value, index, isSelected, cellHasFocus);
+
+            if (value instanceof TodoItem) {
+                TodoItem item = (TodoItem) value;
+
+                // 체크박스 느낌 텍스트
+                String prefix = item.done ? "완료 " : "미완";
+                label.setText(prefix + item.text);
+
+                // 색상 설정
+                if (item.done) {
+                    label.setForeground(new Color(0, 255, 0)); // 완료: 초록색
+                } else if (item.over) {
+                    label.setForeground(Color.RED);             // 밀린 할 일: 빨간색
+                } else {
+                    label.setForeground(Color.BLACK);           // 일반 미완료: 검정
+                }
+            }
+
+            return label;
+    }
+    
+    }
+    
+    
+    private static class RoutineCellRenderer extends DefaultListCellRenderer{
+       @Override
+       public Component getListCellRendererComponent(
+                JList<?> list,
+                Object value,
+                int index,
+                boolean isSelected,
+                boolean cellHasFocus) {
+
+            JLabel label = (JLabel) super.getListCellRendererComponent(
+                    list, value, index, isSelected, cellHasFocus);
+
+            if (value instanceof RoutineItem) {
+                RoutineItem item = (RoutineItem) value;
+
+                // 텍스트는 루틴 내용만
+                label.setText(item.text);
+                
+                if (item.state == RoutineState.TODO) {
+                    label.setForeground(Color.RED);      // 미완료 
+                } else if (item.state == RoutineState.DONE) {
+                    label.setForeground(new Color(0,255,0)); // 완료 
+                } else if (item.state == RoutineState.SKIP) {
+                    label.setForeground(Color.GRAY);     // 건너뜀 = 회색
+                }
+            }
+            return label;
+       }
+    }
 }
+    
+            
+    
+    
+
+
+
