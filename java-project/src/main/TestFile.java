@@ -14,7 +14,7 @@ import calendars.CategoryItem;
 import diary.diary;
 import todo.TodoPanel;
 
-public class TestFile extends JFrame {
+public class TestFile extends JFrame{
 
     public TestFile() {
         // (DB 연동 전 임시 데이터)
