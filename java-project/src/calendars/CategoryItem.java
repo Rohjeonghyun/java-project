@@ -2,7 +2,7 @@ package calendars;
 
 import java.awt.Color;
 
-/**
+/*
  * 카테고리 데이터 클래스 (이름 + 색상)
  */
 public class CategoryItem {
