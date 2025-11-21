@@ -1,6 +1,8 @@
 package calendars;
 
+import javax.security.auth.RefreshFailedException;
 import javax.swing.*;
+
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.awt.event.ActionEvent;
@@ -14,6 +16,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Vector;
+import todo.TodoPanel;
 
 public class CalendarPanel extends JPanel implements ActionListener {
 
@@ -32,6 +35,13 @@ public class CalendarPanel extends JPanel implements ActionListener {
     
     // 날짜별 일정 목록 (Key: "yyyy-MM-dd", Value: 일정 리스트)
     private Map<String, Vector<ScheduleItem>> scheduleData = new HashMap<>();
+    
+    // TODO에서 참조하는거임 ㅇㅇ 김기환 작품
+    public TodoPanel todoPanel;
+    public void setTodoPanel(TodoPanel todoPanel) {
+        this.todoPanel = todoPanel;
+    }
+    // TODO한테 넘겨줘야함 ㅇㅇ 김기환 작품
 
     public CalendarPanel(Vector<CategoryItem> categories) {
         this.categories = categories;
@@ -161,6 +171,11 @@ public class CalendarPanel extends JPanel implements ActionListener {
             
             // 창이 닫힌 후 달력 화면(라인 표시) 갱신
             updateCalendar(); 
+            
+            //TOdoPanel 새로 고침 ㅇㅇ 김기환작품
+            if(todoPanel !=null) {
+            	todoPanel.refreshFromCalendar();
+            }
         });
     }
 
@@ -273,4 +288,9 @@ public class CalendarPanel extends JPanel implements ActionListener {
             }
         }
     }
+    //  TodoPanel에서 일정 데이터를 읽기 위한 getter
+    public Map<String, Vector<ScheduleItem>> getScheduleData() {
+        return scheduleData;
+    }
 }
+
