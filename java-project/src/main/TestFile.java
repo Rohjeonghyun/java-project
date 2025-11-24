@@ -1,6 +1,7 @@
 package main;
 
 import java.awt.BorderLayout;
+
 import java.awt.Color;
 import java.util.Vector; // [NEW] Vector import
 
@@ -8,7 +9,7 @@ import javax.swing.JFrame;
 import javax.swing.JTabbedPane;
 import javax.swing.SwingUtilities;
 
-import Mypage.MypagePanel;
+import Mypage.MyPageFrame;
 import calendars.CalendarPanel;
 import calendars.CategoryItem;
 import diary.diary;
@@ -37,7 +38,7 @@ public class TestFile extends JFrame{
 
         tabs.addTab("Todo",     todoPanel);
         tabs.addTab("Calendar", calendarPanel); 
-        tabs.addTab("MyPage",   new MypagePanel());
+        tabs.addTab("MyPage",    new MyPageFrame());
         tabs.addTab("diary",   new diary());
 
         getContentPane().add(tabs, BorderLayout.CENTER);
