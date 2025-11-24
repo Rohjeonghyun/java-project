@@ -1,10 +1,12 @@
 package todo;
 
+
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+
 import calendars.CalendarPanel;
 import calendars.ScheduleItem;
 
@@ -12,6 +14,9 @@ import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Map;
 import java.util.Vector;
+
+
+
 
 public class TodoPanel extends JPanel {
    
@@ -39,8 +44,6 @@ public class TodoPanel extends JPanel {
         setBackground(Color.white);
         
         
-
-        
         // routine Renderer
         routineList.setCellRenderer(new RoutineCellRenderer());
         
@@ -64,8 +67,8 @@ public class TodoPanel extends JPanel {
     }
   //CalendarPanel 쪽에서 호출 메소드
     public void refreshFromCalendar() {
-       TTC();
-       repaint();
+       TTC(); //오늘 내일 일정 읽어오기
+       repaint(); // 화면 다시 그리
     }
     
  // 캘린더에서 오늘,내일 일정 불러오기
@@ -78,7 +81,7 @@ public class TodoPanel extends JPanel {
         //  오늘 / 내일 날짜 계산
         Calendar today = Calendar.getInstance();
         Calendar tomorrow = (Calendar) today.clone();
-        tomorrow.add(Calendar.DAY_OF_MONTH, 1);   // ★ 여기 고침 (Calendar, DAY_OF_MONTH)
+        tomorrow.add(Calendar.DAY_OF_MONTH, 1);   // (Calendar, DAY_OF_MONTH)
 
         //  캘린더의 키 포맷으로 문자열 생성 (yyyy-MM-dd)
         String todayKey = dateKeyFormat.format(today.getTime());
@@ -146,8 +149,6 @@ public class TodoPanel extends JPanel {
         String todayLabel = "오늘 할 일 (" + labelFormat.format(today.getTime()) + ")";
         String tomorrowLabel = "내일 할 일 (" + labelFormat.format(tomorrow.getTime()) + ")";
 
-
-        
         JPanel todayPanel = buildTodoTab(todayLabel, todoListToday, todoToday);
         JPanel tomorrowPanel = buildTodoTab(tomorrowLabel, todoListTomorrow, todoTomorrow);
         
@@ -183,37 +184,6 @@ public class TodoPanel extends JPanel {
        
        JScrollPane scrollPane=new JScrollPane(list);
        todopanel.add(scrollPane,BorderLayout.CENTER);
-       
-        // 아래 입력 + 버튼 영역
-        JPanel inputPanel = new JPanel(new BorderLayout(5, 5));
-        JTextField inputField = new JTextField();
-        JButton addButton = new JButton("추가");
-        JButton deleteButton = new JButton("삭제");
-
-        inputPanel.add(inputField, BorderLayout.CENTER);
-
-        JPanel btnPanel = new JPanel(new GridLayout(1, 2, 5, 0));
-        btnPanel.add(addButton);
-        btnPanel.add(deleteButton);
-        inputPanel.add(btnPanel, BorderLayout.EAST);
-        todopanel.add(inputPanel, BorderLayout.SOUTH);
-        
-        // 추가 버튼 동작
-        addButton.addActionListener(e -> {
-            String text = inputField.getText().trim();
-            if (!text.isEmpty()) {
-                model.addElement(new TodoItem(text));
-                inputField.setText("");
-            }
-        });
-
-        // 삭제 버튼 동작
-        deleteButton.addActionListener(e -> {
-            int idx = list.getSelectedIndex();
-            if (idx >= 0) {
-                model.remove(idx);
-            }
-        });
         
         return todopanel;}
     
@@ -222,14 +192,30 @@ public class TodoPanel extends JPanel {
         list.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
-                if (e.getClickCount() == 2) {
-                    int idx = list.locationToIndex(e.getPoint());
-                    if (idx >= 0) {
-                        TodoItem item = model.get(idx);
-                        item.done = !item.done;
-                        list.repaint(); // 상태 바뀌었으니 다시 그리기
-                    }
+                int range=list.locationToIndex(e.getPoint());
+                if(range<0)return; // 밖 클릭
+                
+                Rectangle cellBounds = list.getCellBounds(range, range);
+                if (cellBounds == null) return;
+               
+                int rel = e.getX() - cellBounds.x;
+                
+                boolean inCheckBox=(rel>=0&&rel<=25);
+                
+                if(inCheckBox && e.getClickCount()==1) {
+                	TodoItem item=model.get(range);
+                	item.done=!item.done;
+                	list.repaint();
                 }
+                else if (!inCheckBox && e.getClickCount() == 2) {
+                    TodoItem item = model.get(range);
+                    Window owner = SwingUtilities.getWindowAncestor(TodoPanel.this);
+                    TodoDetailDialog dialog = new TodoDetailDialog(owner, item, list);
+                    dialog.setVisible(true);
+                }
+
+              
+ 
             }
         });
     }
@@ -246,14 +232,19 @@ public class TodoPanel extends JPanel {
        JScrollPane scroll=new JScrollPane(routineList);
        routineTab.add(scroll,BorderLayout.CENTER);
        
-       JPanel bottom=new JPanel(new BorderLayout(5,5));
+       JPanel input=new JPanel(new BorderLayout(5,5));
        JTextField inputField= new JTextField();
        JButton addButton=new JButton("추가");
+       JButton deleteButton=new JButton("삭제");
        
-        bottom.add(inputField, BorderLayout.CENTER);
-         bottom.add(addButton, BorderLayout.EAST);
+       input.add(inputField,BorderLayout.CENTER);
        
-       routineTab.add(bottom, BorderLayout.SOUTH);
+       JPanel btnPanel=new JPanel(new GridLayout(1,2,5,0));
+       btnPanel.add(addButton);
+       btnPanel.add(deleteButton);
+       input.add(btnPanel,BorderLayout.EAST);
+       routineTab.add(input,BorderLayout.SOUTH);
+       
 
         addButton.addActionListener(e -> {
             String text = inputField.getText().trim();
@@ -261,6 +252,13 @@ public class TodoPanel extends JPanel {
                 routineModel.addElement(new RoutineItem(text));
                 inputField.setText("");
             }
+        });
+        
+        deleteButton.addActionListener(e->{
+        	int idx=routineList.getSelectedIndex();
+        	if(idx>=0) {
+        		routineModel.remove(idx);
+        	}
         });
 
         return routineTab;
@@ -293,39 +291,59 @@ public class TodoPanel extends JPanel {
         }
     }
     
-    private static class TodoCellRenderer extends DefaultListCellRenderer{
-       @Override
-       public Component getListCellRendererComponent(
-                JList<?> list,
-                Object value,
-                int index,
-                boolean isSelected,
-                boolean cellHasFocus) {
+private static class TodoCellRenderer extends JPanel implements ListCellRenderer<TodoItem>{
+	 private final JCheckBox checkBox;
+	    private final JLabel textLabel;
 
-            JLabel label = (JLabel) super.getListCellRendererComponent(
-                    list, value, index, isSelected, cellHasFocus);
+	    public TodoCellRenderer() {
+	        setLayout(new BorderLayout(5, 0));
+	        setOpaque(true);
 
-            if (value instanceof TodoItem) {
-                TodoItem item = (TodoItem) value;
+	        checkBox = new JCheckBox();
+	        checkBox.setOpaque(false); // 배경은 패널이 담당
 
-                // 체크박스 느낌 텍스트
-                String prefix = item.done ? "완료 " : "미완";
-                label.setText(prefix + item.text);
+	        textLabel = new JLabel();
 
-                // 색상 설정
-                if (item.done) {
-                    label.setForeground(new Color(0, 255, 0)); // 완료: 초록색
-                } else if (item.over) {
-                    label.setForeground(Color.RED);             // 밀린 할 일: 빨간색
-                } else {
-                    label.setForeground(Color.BLACK);           // 일반 미완료: 검정
-                }
-            }
+	        add(checkBox, BorderLayout.WEST);
+	        add(textLabel, BorderLayout.CENTER);
+	    }
 
-            return label;
-    }
-    
-    }
+	    @Override
+	    public Component getListCellRendererComponent(
+	            JList<? extends TodoItem> list,
+	            TodoItem value,
+	            int index,
+	            boolean isSelected,
+	            boolean cellHasFocus) {
+
+	        if (value != null) {
+	            // 체크 상태
+	            checkBox.setSelected(value.done);
+
+	            // 텍스트
+	            textLabel.setText(value.text);
+
+	            // 색상 (완료/밀림/일반)
+	            if (value.done) {
+	                textLabel.setForeground(new Color(0, 150, 0)); // 완료: 초록
+	            } else if (value.over) {
+	                textLabel.setForeground(Color.RED);           // 밀린 할 일
+	            } else {
+	                textLabel.setForeground(Color.BLACK);         // 일반
+	            }
+	        }
+
+	        // 리스트 선택 색상 반영
+	        if (isSelected) {
+	            setBackground(list.getSelectionBackground());
+	            textLabel.setForeground(list.getSelectionForeground());
+	        } else {
+	            setBackground(list.getBackground());
+	        }
+
+	        return this;
+	    }
+}
     
     
     private static class RoutineCellRenderer extends DefaultListCellRenderer{
