@@ -166,7 +166,7 @@ public class CalendarPanel extends JPanel implements ActionListener {
         selectedDate.set(Calendar.DAY_OF_MONTH, day);
 
         SwingUtilities.invokeLater(() -> {
-            DayScheduleDialog dialog = new DayScheduleDialog(parentFrame, title, selectedDate, dailySchedules, categories);
+            DayScheduleDialog dialog = new DayScheduleDialog(parentFrame, title, selectedDate, dailySchedules, categories, this.scheduleData);
             dialog.setVisible(true);
             
             // 창이 닫힌 후 달력 화면(라인 표시) 갱신
