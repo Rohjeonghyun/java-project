@@ -14,6 +14,8 @@ public class TodoDetailDialog extends JDialog {
     private JTextField txtTitle;
     private JCheckBox chkDone;
     private JLabel lblOver;
+    private JLabel lbltime;
+    private JLabel lblEndTime;
 
     public TodoDetailDialog(Window owner, TodoItem item, JList<TodoItem> ownerList) {
         super(owner, "할 일 상세보기", ModalityType.APPLICATION_MODAL);
@@ -28,19 +30,38 @@ public class TodoDetailDialog extends JDialog {
         add(header, BorderLayout.NORTH);
 
         // 중앙
-        JPanel centerPanel = new JPanel(new GridLayout(3, 2, 5, 5));
+        JPanel centerPanel = new JPanel(new GridLayout(5, 2, 5, 5));
         centerPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
         // 제목
         centerPanel.add(new JLabel("할 일:"));
         txtTitle = new JTextField(item.text); // TodoItem의 text 사용
         centerPanel.add(txtTitle);
+        txtTitle.setEditable(false);
 
         // 완료 여부
         centerPanel.add(new JLabel("완료 여부:"));
         chkDone = new JCheckBox("완료", item.done);
         centerPanel.add(chkDone);
+        
+        //시간
+        centerPanel.add(new JLabel("시작 시간:"));
+        String timeText = (item.time != null && !item.time.isEmpty())
+                ? item.time : "-";
+        lbltime = new JLabel(timeText);
+        centerPanel.add(lbltime);
+        
+        
+        // 끝시간
+        centerPanel.add(new JLabel("끝 시간:"));
+        String endText = (item.endTime != null && !item.endTime.isEmpty())
+                ? item.endTime : "-";
+        lblEndTime = new JLabel(endText);
+        centerPanel.add(lblEndTime);
 
+        
+        
+        
         // 밀린 할 일 여부(over)
         centerPanel.add(new JLabel("상태:"));
         String overText = item.over ? "밀린 할 일" : "오늘 할 일";
@@ -74,10 +95,7 @@ public class TodoDetailDialog extends JDialog {
 
     
     private void applyChanges() {
-        String newTitle = txtTitle.getText().trim();
-        if (!newTitle.isEmpty()) {
-            item.text = newTitle;
-        }
+        
         item.done = chkDone.isSelected();
 
         if (ownerList != null) {
