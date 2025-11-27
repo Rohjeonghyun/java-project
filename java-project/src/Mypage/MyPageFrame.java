@@ -20,22 +20,22 @@ public class MyPageFrame extends JPanel implements ActionListener {
 
     public MyPageFrame() {
     	
-        // 전체 배경
+        //전체 배경
         JPanel root = new JPanel(new BorderLayout());
         root.setBackground(Color.WHITE);
 
-        // ★ 여기서 add(root); → this에 레이아웃 설정하고 add해야 함
+        
         setLayout(new BorderLayout());
         add(root, BorderLayout.CENTER);
 
-        // 가운데 세로 레이아웃 영역
+        
         JPanel center = new JPanel();
         center.setBackground(Color.WHITE);
         center.setLayout(new BoxLayout(center, BoxLayout.Y_AXIS));
         center.setBorder(BorderFactory.createEmptyBorder(20, 40, 10, 40)); // 좌우 여백
         root.add(center, BorderLayout.CENTER);
 
-        // ----- 프로필 원 -----
+        //프로필 사진
         profilePanel = new JPanel() {
             @Override
             protected void paintComponent(Graphics g) {
@@ -54,7 +54,7 @@ public class MyPageFrame extends JPanel implements ActionListener {
                 if (profileImage != null) {
                     g2.drawImage(profileImage, x, y, size, size, this);
                 } else {
-                    g2.setColor(Color.BLACK);
+                    g2.setColor(Color.decode("#4A90E2"));
                     g2.fillOval(x, y, size, size);
                 }
                 g2.dispose();
@@ -71,29 +71,27 @@ public class MyPageFrame extends JPanel implements ActionListener {
             }
         });
 
-        // ----- 텍스트 라벨 -----
-        JLabel lblName = new JLabel("Tester");
-        lblName.setFont(new Font("SansSerif", Font.PLAIN, 16));
+        //텍스트
+        JLabel lblName = new JLabel("사용자명");
+        lblName.setFont(new Font("SansSerif", Font.PLAIN, 20));
         lblName.setForeground(new Color(150, 150, 150));
         lblName.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        JLabel lblBirth = new JLabel("Birth date: 2000-01-01");
-        lblBirth.setFont(new Font("SansSerif", Font.PLAIN, 14));
+        JLabel lblBirth = new JLabel("생년월일 : 2000-01-01");
+        lblBirth.setFont(new Font("SansSerif", Font.BOLD |Font.PLAIN, 18));
         lblBirth.setForeground(new Color(190, 190, 190));
         lblBirth.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        // ----- 버튼들 -----
-        btnEditProfile = createButton("Edit Profile", true); // 검은색
-        btnChangePassword = createButton("Change Password", false);
-        btnMyStats = createButton("My Stats", false);
-        btnReminderSettings = createButton("Reminder Settings", false);
-        btnLogout = createButton("Log Out", false);
-        btnExportCsv = createButton("Export(.csv)", true);   // 검은색 작은 버튼
-        btnExportCsv.setMaximumSize(new Dimension(120, 35));
-        btnDeleteAccount = createButton("Delete Account", false);
+        //버튼
+        btnEditProfile = createButton("프로필 변경", true);
+        btnChangePassword = createButton("비밀번호 변경", false);
+        btnMyStats = createButton("통계", false);
+        btnReminderSettings = createButton("리마인더 설정", false);
+        btnLogout = createButton("로그아웃", false);
+        btnDeleteAccount = createButton("계정 삭제", false);
         btnDeleteAccount.setEnabled(false); // 회색 비활성화
 
-        // ----- 컴포넌트 배치 -----
+        //컴포넌트 배치
         center.add(profilePanel);
         center.add(Box.createVerticalStrut(15));
         center.add(lblName);
@@ -109,14 +107,13 @@ public class MyPageFrame extends JPanel implements ActionListener {
         center.add(btnReminderSettings);
         center.add(Box.createVerticalStrut(18));
 
-        // Log Out + Export(.csv)
+        // Log Out
         JPanel bottomButtons = new JPanel();
         bottomButtons.setBackground(Color.WHITE);
         bottomButtons.setLayout(new BoxLayout(bottomButtons, BoxLayout.X_AXIS));
         bottomButtons.setAlignmentX(Component.CENTER_ALIGNMENT);
         bottomButtons.add(btnLogout);
         bottomButtons.add(Box.createHorizontalStrut(10));
-        bottomButtons.add(btnExportCsv);
         center.add(bottomButtons);
 
         center.add(Box.createVerticalStrut(12));
@@ -124,7 +121,7 @@ public class MyPageFrame extends JPanel implements ActionListener {
 
         center.add(Box.createVerticalGlue());
 
-        // ----- 하단 자동저장 -----
+        //autoSaveBar
         JPanel statusBar = new JPanel(new BorderLayout());
         statusBar.setBackground(new Color(245, 245, 245));
         statusBar.setBorder(BorderFactory.createEmptyBorder(3, 8, 3, 8));
@@ -140,19 +137,19 @@ public class MyPageFrame extends JPanel implements ActionListener {
     private JButton createButton(String text, boolean primary) {
         JButton b = new JButton(text);
         b.setFocusPainted(false);
-        b.setFont(new Font("SansSerif", Font.PLAIN, 14));
+        b.setFont(new Font("SansSerif", Font.BOLD |Font.PLAIN, 18));
         b.setAlignmentX(Component.CENTER_ALIGNMENT);
-        b.setMaximumSize(new Dimension(220, 35));
+        b.setMaximumSize(new Dimension(320, 55));
 
-        if (primary) { // 검은 버튼
-            b.setBackground(Color.BLACK);
-            b.setForeground(Color.WHITE);
-        } else {       // 흰 버튼
+        if (primary) {
+            b.setBackground(Color.WHITE);
+            b.setForeground(Color.BLACK);
+        } else {
             b.setBackground(Color.WHITE);
             b.setForeground(Color.BLACK);
         }
 
-        b.setBorder(BorderFactory.createLineBorder(Color.BLACK, 2));
+        b.setBorder(BorderFactory.createLineBorder(Color.BLUE, 1));
         b.setBorderPainted(true);
         b.setContentAreaFilled(true);
         b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
@@ -170,7 +167,7 @@ public class MyPageFrame extends JPanel implements ActionListener {
         }
     }
 
-    @Override//---- 화면 동작 처리 ----
+    @Override//화면ActionEvent처리
     public void actionPerformed(ActionEvent e) {
         Object src = e.getSource();
 
@@ -188,9 +185,6 @@ public class MyPageFrame extends JPanel implements ActionListener {
 
         } else if (src == btnLogout) {
             JOptionPane.showMessageDialog(this, "로그아웃 (DB 연동 예정)");
-
-        } else if (src == btnExportCsv) {
-            JOptionPane.showMessageDialog(this, "CSV Export (DB 연동 예정)");
         }
     }
 
@@ -198,7 +192,7 @@ public class MyPageFrame extends JPanel implements ActionListener {
     	SwingUtilities.invokeLater(() -> {
             JFrame frame = new JFrame("My Page Test");
             frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-            frame.setSize(360, 620);
+            frame.setSize(800, 700);
             frame.setLocationRelativeTo(null);
             frame.setContentPane(new MyPageFrame());
             frame.setVisible(true);

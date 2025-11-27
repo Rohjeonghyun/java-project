@@ -12,7 +12,7 @@ import javax.swing.border.TitledBorder;
 public class StatsFrame extends JFrame {
 
 public StatsFrame(Component owner) {
-   setTitle("My Stats");
+   setTitle("MyStats");
    setSize(500, 500);
    setLocationRelativeTo(owner);    // 메인창 기준 중앙
    setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
@@ -21,16 +21,16 @@ public StatsFrame(Component owner) {
    panel.setBorder(new TitledBorder("My Stats"));
    panel.setBackground(Color.WHITE);
 
-   // 상단: 카테고리/월 선택 콤보박스 (예시)
+   //선택 콤보박스
    JPanel top = new JPanel();
    top.setBackground(Color.WHITE);
    JComboBox<String> cbMonth = new JComboBox<>(
-           new String[]{"Category (Month)", "2025-01", "2025-02", "2025-03"}
+           new String[]{"통계 항목", "할 일", "루틴", "카테고리"}
    );
    top.add(cbMonth);
    panel.add(top, BorderLayout.NORTH);
 
-   // 중앙: 파이차트 자리 (더미)
+   //파이차트(더미)
    JPanel chartPanel = new JPanel() {
        @Override
        protected void paintComponent(Graphics g) {
@@ -41,7 +41,7 @@ public StatsFrame(Component owner) {
            g.setColor(new Color(230, 230, 230));
            g.fillOval(x, y, size, size);
            g.setColor(Color.DARK_GRAY);
-           g.drawString("Monthly Category Pie Chart (Dummy)", x + 20, y + size / 2);
+           g.drawString("Stats Pie Chart (Dummy)", x + 20, y + size / 2);
 
            // TODO: DB에서 카테고리별 비율을 읽어와
            //       여러 색상의 파이 조각으로 나누어 그리는 코드 추가
