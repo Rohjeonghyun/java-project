@@ -1,13 +1,22 @@
 package todo;
 
 public class TodoItem {
-    String text;    // 할일 내용
-    boolean done;   // 완료 여부
-    boolean over;  // 밀렸을때
-    public TodoItem(String t) {
+    String text;
+    boolean done;
+    boolean over;
+    String time;
+    String endTime;   
+
+    public TodoItem(String t, boolean done, boolean over, String time, String endTime) {
         this.text = t;
-        this.done = false;
-        this.over=false;
+        this.done = done;
+        this.over = over;
+        this.time = time;
+        this.endTime = endTime;
+    }
+
+    public TodoItem(String text) {
+        this(text, false, false, null, null);
     }
 
     @Override
