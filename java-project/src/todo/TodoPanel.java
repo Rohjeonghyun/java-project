@@ -17,7 +17,7 @@ import java.util.Vector;
 
 
 
-
+// 누락수정
 public class TodoPanel extends JPanel {
    
     // 오늘,내일 모델
@@ -25,10 +25,12 @@ public class TodoPanel extends JPanel {
     private final JList<TodoItem> todoListToday = new JList<>(todoToday);
     private final DefaultListModel<TodoItem> todoTomorrow = new DefaultListModel<>();
     private final JList<TodoItem> todoListTomorrow = new JList<>(todoTomorrow);
+    
 
     // 루틴 모델
     private final DefaultListModel<RoutineItem> routineModel = new DefaultListModel<>();
     private final JList<RoutineItem> routineList = new JList<>(routineModel);
+    private final DefaultListModel<RoutineItem> skippedRoutineModel = new DefaultListModel<>();
     
     // 캘린더 패널 참조 + 날짜 초기화
     private final CalendarPanel calendarPanel;
@@ -43,7 +45,7 @@ public class TodoPanel extends JPanel {
         setLayout(new BorderLayout());
         setBackground(Color.white);
         
-        
+        //ㅇ
         // routine Renderer
         routineList.setCellRenderer(new RoutineCellRenderer());
         
@@ -90,23 +92,30 @@ public class TodoPanel extends JPanel {
         //  CalendarPanel 에서 scheduleData 꺼내오기
         Map<String, Vector<ScheduleItem>> data = calendarPanel.getScheduleData();
 
-        // 오늘 일정  Todo 모델에 추가
+
+     // 오늘 일정 Todo 모델에 추가
         Vector<ScheduleItem> todaySchedules = data.get(todayKey);
         if (todaySchedules != null) {
             for (ScheduleItem s : todaySchedules) {
-                String text = s.getStartTime() + " " + s.getTitle();
-                todoToday.addElement(new TodoItem(text));
+                String title = s.getTitle();       // 할 일 제목
+                String time  = s.getStartTime();   // 시작 시간
+                String Time=s.getEndTime();
+                todoToday.addElement(new TodoItem(title, false, false, time,Time));
             }
         }
 
-        // 6) 내일 일정 → 내일 Todo 모델에 추가
+        // 내일 일정 -> 내일 Todo 모델에 추가
         Vector<ScheduleItem> tomorrowSchedules = data.get(tomorrowKey);
         if (tomorrowSchedules != null) {
             for (ScheduleItem s : tomorrowSchedules) {
-                String text = s.getStartTime() + " " + s.getTitle();
-                todoTomorrow.addElement(new TodoItem(text));
+                String title = s.getTitle();
+                String time  = s.getStartTime();
+                String Time=s.getEndTime();
+                todoTomorrow.addElement(new TodoItem(title, false, false, time,Time));
             }
         }
+
+
     }
 
     
@@ -157,9 +166,9 @@ public class TodoPanel extends JPanel {
        
         root.add(todoTab,BorderLayout.NORTH);
         root.add(todoTab,BorderLayout.CENTER);
-        btnRefresh.addActionListener(e -> refreshFromCalendar());
+        
 
-        // 오늘 미완료 → 내일로 넘기기
+        // 오늘 미완료 내일로 넘기기
         btnRefresh.addActionListener(e -> refreshFromCalendar());
         btnMove.addActionListener(e -> {
             moveUnfinishedToTomorrow();
@@ -203,9 +212,9 @@ public class TodoPanel extends JPanel {
                 boolean inCheckBox=(rel>=0&&rel<=25);
                 
                 if(inCheckBox && e.getClickCount()==1) {
-                	TodoItem item=model.get(range);
-                	item.done=!item.done;
-                	list.repaint();
+                   TodoItem item=model.get(range);
+                   item.done=!item.done;
+                   list.repaint();
                 }
                 else if (!inCheckBox && e.getClickCount() == 2) {
                     TodoItem item = model.get(range);
@@ -236,12 +245,16 @@ public class TodoPanel extends JPanel {
        JTextField inputField= new JTextField();
        JButton addButton=new JButton("추가");
        JButton deleteButton=new JButton("삭제");
+       JButton skipButton=new JButton("스킵");
+       JButton viewSkipButton=new JButton("스킵 목록");
        
        input.add(inputField,BorderLayout.CENTER);
        
-       JPanel btnPanel=new JPanel(new GridLayout(1,2,5,0));
+       JPanel btnPanel=new JPanel(new GridLayout(1,4,5,0));
        btnPanel.add(addButton);
        btnPanel.add(deleteButton);
+       btnPanel.add(skipButton);
+       btnPanel.add(viewSkipButton);
        input.add(btnPanel,BorderLayout.EAST);
        routineTab.add(input,BorderLayout.SOUTH);
        
@@ -255,29 +268,113 @@ public class TodoPanel extends JPanel {
         });
         
         deleteButton.addActionListener(e->{
-        	int idx=routineList.getSelectedIndex();
-        	if(idx>=0) {
-        		routineModel.remove(idx);
-        	}
+           int idx=routineList.getSelectedIndex();
+           if(idx>=0) {
+              routineModel.remove(idx);
+           }
         });
+        skipButton.addActionListener(e -> {
+            int idx = routineList.getSelectedIndex();
+            if (idx >= 0) {
+                RoutineItem item = routineModel.get(idx);
+
+                // 스킵 상태로 만들고
+                item.state = RoutineState.SKIP;
+
+                // 메인 루틴 목록에서 제거
+                routineModel.remove(idx);
+
+                // 스킵 전용 목록에 추가
+                skippedRoutineModel.addElement(item);
+
+                routineList.repaint();
+            }
+        });
+     // SKIP만 모아서 보여주기
+        viewSkipButton.addActionListener(e -> {
+            JList<RoutineItem> skipList = new JList<>(skippedRoutineModel);
+               skipList.setCellRenderer(new RoutineCellRenderer());
+
+               JScrollPane skipScroll = new JScrollPane(skipList);
+               
+               Object[] options= {"되돌리기","닫기"};
+               int result = JOptionPane.showOptionDialog(
+                       routineTab,
+                       skipScroll,
+                       "스킵한 루틴 목록",
+                       JOptionPane.DEFAULT_OPTION,
+                       JOptionPane.PLAIN_MESSAGE,
+                       null,
+                       options,
+                       options[1]   // 기본 선택: 닫기
+               );
+               // "되돌리기"를 눌렀을 때
+               if (result == 0) {
+                   int sel = skipList.getSelectedIndex();
+                   if (sel >= 0) {
+                       // 선택된 스킵 항목 가져오기
+                       RoutineItem item = skippedRoutineModel.get(sel);
+
+                       // 스킵 목록에서 제거
+                       skippedRoutineModel.remove(sel);
+
+                       // 상태를 TODO로 되돌리고
+                       item.state = RoutineState.TODO;
+
+                       // 메인 루틴 목록에 다시 추가
+                       routineModel.addElement(item);
+
+                       // 화면 갱신
+                       routineList.repaint();
+                   } else {
+                       // 아무것도 선택 안 했는데 되돌리기 누르면 안내만 (선택사항)
+                       JOptionPane.showMessageDialog(
+                               routineTab,
+                               "되돌릴 루틴을 먼저 선택하세요.",
+                               "알림",
+                               JOptionPane.INFORMATION_MESSAGE
+                       );
+                   }
+               }
+           });
+
+          
 
         return routineTab;
        }
     // 루틴상태 변경리스너
     private void addRoutineStateListener() {
-       routineList.addMouseListener(new MouseAdapter() {
-          @Override
-          public void mouseClicked(MouseEvent e) {
-             int idx=routineList.locationToIndex(e.getPoint());
-             if(idx>=0) {
-                RoutineItem item=routineModel.get(idx);
-                item.nextState();
+        routineList.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                int idx = routineList.locationToIndex(e.getPoint());
+                if (idx < 0) return;
+
+                Rectangle cellBounds = routineList.getCellBounds(idx, idx);
+                if (cellBounds == null) return;
+
+                int relX = e.getX() - cellBounds.x;
+                boolean inCheckBox = (relX >= 0 && relX <= 25); // 체크박스 가로 범위 대충 0~25
+
+                if (inCheckBox && e.getClickCount() == 1) {
+                    RoutineItem item = routineModel.get(idx);
+
+                    // SKIP이면 체크박스 건들 x
+                    if (item.state == RoutineState.SKIP) return;
+
+                   
+                    if (item.state == RoutineState.DONE) {
+                        item.state = RoutineState.TODO;
+                    } else {
+                        item.state = RoutineState.DONE;
+                    }
+
                     routineList.repaint();
-             }
-          }
-          
-       });
+                }
+            }
+        });
     }
+
     // 미완료 다음날로
     public void moveUnfinishedToTomorrow() {
         // 뒤에서부터 지우기 (인덱스 꼬임 방지)
@@ -292,89 +389,111 @@ public class TodoPanel extends JPanel {
     }
     
 private static class TodoCellRenderer extends JPanel implements ListCellRenderer<TodoItem>{
-	 private final JCheckBox checkBox;
-	    private final JLabel textLabel;
+    private final JCheckBox checkBox;
+       private final JLabel textLabel;
 
-	    public TodoCellRenderer() {
-	        setLayout(new BorderLayout(5, 0));
-	        setOpaque(true);
+       public TodoCellRenderer() {
+           setLayout(new BorderLayout(5, 0));
+           setOpaque(true);
 
-	        checkBox = new JCheckBox();
-	        checkBox.setOpaque(false); // 배경은 패널이 담당
+           checkBox = new JCheckBox();
+           checkBox.setOpaque(false); // 배경은 패널이 담당
 
-	        textLabel = new JLabel();
+           textLabel = new JLabel();
 
-	        add(checkBox, BorderLayout.WEST);
-	        add(textLabel, BorderLayout.CENTER);
-	    }
+           add(checkBox, BorderLayout.WEST);
+           add(textLabel, BorderLayout.CENTER);
+       }
 
-	    @Override
-	    public Component getListCellRendererComponent(
-	            JList<? extends TodoItem> list,
-	            TodoItem value,
-	            int index,
-	            boolean isSelected,
-	            boolean cellHasFocus) {
+       @Override
+       public Component getListCellRendererComponent(
+               JList<? extends TodoItem> list,
+               TodoItem value,
+               int index,
+               boolean isSelected,
+               boolean cellHasFocus) {
 
-	        if (value != null) {
-	            // 체크 상태
-	            checkBox.setSelected(value.done);
+           if (value != null) {
+               // 체크 상태
+               checkBox.setSelected(value.done);
 
-	            // 텍스트
-	            textLabel.setText(value.text);
+               // 텍스트
+               textLabel.setText(value.text);
 
-	            // 색상 (완료/밀림/일반)
-	            if (value.done) {
-	                textLabel.setForeground(new Color(0, 150, 0)); // 완료: 초록
-	            } else if (value.over) {
-	                textLabel.setForeground(Color.RED);           // 밀린 할 일
-	            } else {
-	                textLabel.setForeground(Color.BLACK);         // 일반
-	            }
-	        }
+               // 색상 (완료/밀림/일반)
+               if (value.done) {
+                   textLabel.setForeground(new Color(0, 150, 0)); // 완료: 초록
+               } else if (value.over) {
+                   textLabel.setForeground(Color.RED);           // 밀린 할 일
+               } else {
+                   textLabel.setForeground(Color.BLACK);         // 일반
+               }
+           }
 
-	        // 리스트 선택 색상 반영
-	        if (isSelected) {
-	            setBackground(list.getSelectionBackground());
-	            textLabel.setForeground(list.getSelectionForeground());
-	        } else {
-	            setBackground(list.getBackground());
-	        }
+           // 리스트 선택 색상 반영
+           if (isSelected) {
+               setBackground(list.getSelectionBackground());
+               textLabel.setForeground(list.getSelectionForeground());
+           } else {
+               setBackground(list.getBackground());
+           }
 
-	        return this;
-	    }
+           return this;
+       }
 }
     
     
-    private static class RoutineCellRenderer extends DefaultListCellRenderer{
-       @Override
-       public Component getListCellRendererComponent(
-                JList<?> list,
-                Object value,
-                int index,
-                boolean isSelected,
-                boolean cellHasFocus) {
+private static class RoutineCellRenderer extends JPanel implements ListCellRenderer<RoutineItem> {
 
-            JLabel label = (JLabel) super.getListCellRendererComponent(
-                    list, value, index, isSelected, cellHasFocus);
+    private final JCheckBox checkBox;
+    private final JLabel textLabel;
 
-            if (value instanceof RoutineItem) {
-                RoutineItem item = (RoutineItem) value;
+    public RoutineCellRenderer() {
+        setLayout(new BorderLayout(5, 0));
+        setOpaque(true);
 
-                // 텍스트는 루틴 내용만
-                label.setText(item.text);
-                
-                if (item.state == RoutineState.TODO) {
-                    label.setForeground(Color.RED);      // 미완료 
-                } else if (item.state == RoutineState.DONE) {
-                    label.setForeground(new Color(0,255,0)); // 완료 
-                } else if (item.state == RoutineState.SKIP) {
-                    label.setForeground(Color.GRAY);     // 건너뜀 = 회색
-                }
-            }
-            return label;
-       }
+        checkBox = new JCheckBox();
+        checkBox.setOpaque(false); // 배경은 패널이 담당
+
+        textLabel = new JLabel(); 
+
+        add(checkBox, BorderLayout.WEST);
+        add(textLabel, BorderLayout.CENTER);
     }
+
+    @Override
+    public Component getListCellRendererComponent(
+            JList<? extends RoutineItem> list,
+            RoutineItem value,
+            int index,
+            boolean isSelected,
+            boolean cellHasFocus) {
+
+        if (value != null) {
+            // 체크박스: DONE이면 체크, 아니면 해제
+            checkBox.setSelected(value.state == RoutineState.DONE);
+
+            // 텍스트
+            textLabel.setText(value.text);
+
+            // 색상: SKIP만 회색, 나머지는 기본색
+            if (value.state == RoutineState.SKIP) {
+                textLabel.setForeground(Color.GRAY);
+            } else {
+                textLabel.setForeground(Color.BLACK);
+            }
+        }
+
+        // 리스트 선택 색상 반영
+        if (isSelected) {
+            setBackground(list.getSelectionBackground());
+        } else {
+            setBackground(list.getBackground());
+        }
+
+        return this;
+    }
+}
 }
     
             
