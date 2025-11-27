@@ -18,7 +18,7 @@ public class TodoDetailDialog extends JDialog {
     private JLabel lblEndTime;
 
     public TodoDetailDialog(Window owner, TodoItem item, JList<TodoItem> ownerList) {
-        super(owner, "할 일 상세보기", ModalityType.APPLICATION_MODAL);
+        super(owner, "할 일 상세보기..", ModalityType.APPLICATION_MODAL);
         this.item = item;
         this.ownerList = ownerList;
 
