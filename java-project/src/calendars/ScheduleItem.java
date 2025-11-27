@@ -12,20 +12,26 @@ public class ScheduleItem {
     private Color categoryColor;
     private String startTime;
     private String endTime;
+    private String date;
+    private long id;
 
-    public ScheduleItem(String title, String category, String startTime, String endTime, Color categoryColor) {
-        this.title = title;
+    public ScheduleItem(long id, String title, String category, String startTime, String endTime, Color categoryColor, String date) {
+        this.id = id;
+    	this.title = title;
         this.category = category;
         this.startTime = startTime;
         this.endTime = endTime;
         this.categoryColor = categoryColor;
+        this.date = date;
     }
 
+    public long getId() { return id; }
     public String getTitle() { return title; }
     public String getCategory() { return category; }
     public String getStartTime() { return startTime; }
     public String getEndTime() { return endTime; }
     public Color getCategoryColor() { return categoryColor; }
+    public String getDate() { return date; }
     
     // 리스트에 보여질 텍스트 형식 정의 (예: "[학교] 10:00 ~ 12:00 강의")
     @Override
