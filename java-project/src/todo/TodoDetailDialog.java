@@ -16,6 +16,7 @@ public class TodoDetailDialog extends JDialog {
     private JLabel lblOver;
     private JLabel lbltime;
     private JLabel lblEndTime;
+    private JLabel lblCategory;
 
     public TodoDetailDialog(Window owner, TodoItem item, JList<TodoItem> ownerList) {
         super(owner, "할 일 상세보기..", ModalityType.APPLICATION_MODAL);
@@ -30,15 +31,25 @@ public class TodoDetailDialog extends JDialog {
         add(header, BorderLayout.NORTH);
 
         // 중앙
-        JPanel centerPanel = new JPanel(new GridLayout(5, 2, 5, 5));
+        JPanel centerPanel = new JPanel(new GridLayout(6, 2, 5, 5));
         centerPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-
+        
+        boolean isRoutine =
+                ("루틴".equals(item.category))     // 카테고리에 이미 루틴이 들어온 경우
+                || item.groupId == 0L;
         // 제목
         centerPanel.add(new JLabel("할 일:"));
         txtTitle = new JTextField(item.text); // TodoItem의 text 사용
         centerPanel.add(txtTitle);
         txtTitle.setEditable(false);
-
+        
+        //카테고리
+        centerPanel.add(new JLabel("카테고리:"));
+        String categoryText = (item.category != null && !item.category.isEmpty())
+                ? item.category : "-";
+        lblCategory = new JLabel(categoryText);
+        centerPanel.add(lblCategory);
+        
         // 완료 여부
         centerPanel.add(new JLabel("완료 여부:"));
         chkDone = new JCheckBox("완료", item.done);

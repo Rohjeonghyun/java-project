@@ -2,6 +2,7 @@ package main;
 
 import javax.swing.*;
 
+
 import Mypage.MyPageFrame;
 
 import java.awt.*;
@@ -28,12 +29,24 @@ public class TestFile extends JFrame {
         }
 
         JTabbedPane tabs = new JTabbedPane();
-
+        
+        CalendarPanel calendarPanel=new CalendarPanel(categories,dao);
+        TodoPanel todoPanel=new TodoPanel(calendarPanel);
         // 3. UI 생성 시 DAO와 categories 전달
-        // tabs.addTab("Todo",     new TodoPanel(categories)); // TodoPanel도 나중에 DAO 받도록 수정 필요
-        tabs.addTab("Calendar", new CalendarPanel(categories, dao));
+        tabs.addTab("Todo",     todoPanel); // TodoPanel도 나중에 DAO 받도록 수정 필요
+        tabs.addTab("Calendar",  calendarPanel);
         tabs.addTab("MyPage",   new MyPageFrame());
         tabs.addTab("diary", new diary());
+        
+        // 새로고침 tab 변경시
+        tabs.addChangeListener(e->{
+        	JTabbedPane tp=(JTabbedPane)e.getSource();
+        	Component selected=tp.getSelectedComponent();
+        	
+        	if(selected==todoPanel) {
+        		todoPanel.refreshFromCalendar();
+        	}
+        });
 
         getContentPane().add(tabs, BorderLayout.CENTER);
         setTitle("Diary Project");

@@ -2,6 +2,7 @@ package todo;
 
 
 import javax.swing.*;
+
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
@@ -15,10 +16,20 @@ import java.util.Calendar;
 import java.util.Map;
 import java.util.Vector;
 
+import database.DBConnection;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+
+
 
 
 // 누락수정
 public class TodoPanel extends JPanel {
+	
+	private static final long USER_ID = 1L;   // CalendarDAO와 맞추기
+
    
     // 오늘,내일 모델
     private final DefaultListModel<TodoItem> todoToday = new DefaultListModel<>();
@@ -45,7 +56,7 @@ public class TodoPanel extends JPanel {
         setLayout(new BorderLayout());
         setBackground(Color.white);
         
-        //ㅇ
+        
         // routine Renderer
         routineList.setCellRenderer(new RoutineCellRenderer());
         
@@ -59,6 +70,9 @@ public class TodoPanel extends JPanel {
 
         // Routine 상태
         addRoutineStateListener();
+        
+        // DB 읽어오기ㄹ
+        loadRoutinesFromDB();
         
         // 캘린더에서 오늘/내일 일정 불러오기
         TTC();
@@ -96,26 +110,50 @@ public class TodoPanel extends JPanel {
      // 오늘 일정 Todo 모델에 추가
         Vector<ScheduleItem> todaySchedules = data.get(todayKey);
         if (todaySchedules != null) {
-            for (ScheduleItem s : todaySchedules) {
-                String title = s.getTitle();       // 할 일 제목
-                String time  = s.getStartTime();   // 시작 시간
-                String Time=s.getEndTime();
-                todoToday.addElement(new TodoItem(title, false, false, time,Time));
+        	 for (ScheduleItem s : todaySchedules) {
+                 long groupId   = s.getId();          // calendars 쪽에서 이미 세팅해둔 값
+                 String title   = s.getTitle();
+                 String time    = s.getStartTime();
+                 String endTime = s.getEndTime();
+                 String category= s.getCategory();
+
+                 boolean done = isDoneInDB(groupId);
+
+                 todoToday.addElement(
+                     new TodoItem(groupId, title, done, false, time, endTime, category)
+                 );
+             }
+         }
+    
+       // 루틴을 오늘 TODO에 다시 반영
+        for (int i = 0; i < routineModel.size(); i++) {
+            RoutineItem r = routineModel.get(i);
+            if (r.state != RoutineState.SKIP) {      // 스킵 아닌 루틴만
+                todoToday.addElement(
+                    new TodoItem(r.text, false, false, r.startTime, null, "루틴")
+                );
             }
         }
+    
 
+    
         // 내일 일정 -> 내일 Todo 모델에 추가
         Vector<ScheduleItem> tomorrowSchedules = data.get(tomorrowKey);
         if (tomorrowSchedules != null) {
             for (ScheduleItem s : tomorrowSchedules) {
-                String title = s.getTitle();
-                String time  = s.getStartTime();
-                String Time=s.getEndTime();
-                todoTomorrow.addElement(new TodoItem(title, false, false, time,Time));
+                long groupId   = s.getId();
+                String title   = s.getTitle();
+                String time    = s.getStartTime();
+                String endTime = s.getEndTime();
+                String category= s.getCategory();
+
+                boolean done = isDoneInDB(groupId);
+
+                todoTomorrow.addElement(
+                    new TodoItem(groupId, title, done, false, time, endTime, category)
+                );
             }
         }
-
-
     }
 
     
@@ -145,6 +183,8 @@ public class TodoPanel extends JPanel {
 
         topBar.add(btnRefresh);
         topBar.add(btnMove);
+        
+        root.add(topBar,BorderLayout.NORTH);
        
        
          // 오늘 내일 날짜 계산
@@ -163,6 +203,8 @@ public class TodoPanel extends JPanel {
         
         todoTab.add(todayPanel);
         todoTab.add(tomorrowPanel);
+        
+        root.add(todoTab,BorderLayout.CENTER);
        
         root.add(todoTab,BorderLayout.NORTH);
         root.add(todoTab,BorderLayout.CENTER);
@@ -208,12 +250,12 @@ public class TodoPanel extends JPanel {
                 if (cellBounds == null) return;
                
                 int rel = e.getX() - cellBounds.x;
-                
                 boolean inCheckBox=(rel>=0&&rel<=25);
                 
                 if(inCheckBox && e.getClickCount()==1) {
                    TodoItem item=model.get(range);
-                   item.done=!item.done;
+                   item.done=!item.done; // 메모리 상태 토글
+                   updateStatusInDB(item.groupId, item.done); //DB 업데이트
                    list.repaint();
                 }
                 else if (!inCheckBox && e.getClickCount() == 2) {
@@ -259,18 +301,35 @@ public class TodoPanel extends JPanel {
        routineTab.add(input,BorderLayout.SOUTH);
        
 
-        addButton.addActionListener(e -> {
-            String text = inputField.getText().trim();
-            if (!text.isEmpty()) {
-                routineModel.addElement(new RoutineItem(text));
-                inputField.setText("");
-            }
-        });
+       addButton.addActionListener(e -> {
+    	    String text = inputField.getText().trim();
+    	    if (!text.isEmpty()) {
+    	    	Window owner=SwingUtilities.getWindowAncestor(TodoPanel.this);
+    	    	RoutineDetailDialog dialog=new RoutineDetailDialog(owner, text, null);
+    	    	
+    	    	dialog.setVisible(true);
+    	    	
+    	    	if(dialog.isConfirmed()) {
+    	    		String startTime=dialog.getStartTime();
+    	    	
+    	        insertRoutineToDB(text);   //DB에 먼저 저장
+    	        
+    	        RoutineItem r=new RoutineItem(text);
+    	        routineModel.addElement(r);
+    	        todoToday.addElement(new TodoItem(text, false, false, startTime, null, "루틴"));
+
+    	        inputField.setText("");
+    	        refreshROutineColorsInTodo();
+    	    	}
+    	    }
+    	});
+
         
         deleteButton.addActionListener(e->{
            int idx=routineList.getSelectedIndex();
            if(idx>=0) {
               routineModel.remove(idx);
+              refreshROutineColorsInTodo(); 
            }
         });
         skipButton.addActionListener(e -> {
@@ -288,6 +347,7 @@ public class TodoPanel extends JPanel {
                 skippedRoutineModel.addElement(item);
 
                 routineList.repaint();
+                refreshROutineColorsInTodo(); 
             }
         });
      // SKIP만 모아서 보여주기
@@ -326,6 +386,7 @@ public class TodoPanel extends JPanel {
 
                        // 화면 갱신
                        routineList.repaint();
+                       refreshROutineColorsInTodo();
                    } else {
                        // 아무것도 선택 안 했는데 되돌리기 누르면 안내만 (선택사항)
                        JOptionPane.showMessageDialog(
@@ -358,6 +419,8 @@ public class TodoPanel extends JPanel {
 
                 if (inCheckBox && e.getClickCount() == 1) {
                     RoutineItem item = routineModel.get(idx);
+                    
+                    
 
                     // SKIP이면 체크박스 건들 x
                     if (item.state == RoutineState.SKIP) return;
@@ -369,10 +432,23 @@ public class TodoPanel extends JPanel {
                         item.state = RoutineState.DONE;
                     }
 
-                    routineList.repaint();
+                    routineList.repaint(); refreshROutineColorsInTodo();
                 }
+                else if(e.getClickCount()==2) {
+                	 RoutineItem item = routineModel.get(idx);
+
+                     Window owner = SwingUtilities.getWindowAncestor(TodoPanel.this);
+                     RoutineDetailDialog dialog =
+                             new RoutineDetailDialog(owner, item.text, item.startTime);
+
+                     dialog.setVisible(true);
+
+                     if (dialog.isConfirmed()) {
+                         item.startTime = dialog.getStartTime();
+                         routineList.repaint();
+                } 
             }
-        });
+            }});
     }
 
     // 미완료 다음날로
@@ -387,8 +463,115 @@ public class TodoPanel extends JPanel {
             }
         }
     }
+    private void refreshROutineColorsInTodo() {
+    	
+    	todoListToday.repaint();
+    	todoListTomorrow.repaint();}
     
-private static class TodoCellRenderer extends JPanel implements ListCellRenderer<TodoItem>{
+    // 루틴 호출 메서드
+    private void loadRoutinesFromDB() {
+        routineModel.clear();
+
+        String sql = "SELECT title FROM routines WHERE user_id = ?";
+
+        try (Connection con = DBConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+
+            ps.setLong(1, USER_ID);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    String title = rs.getString("title");
+                    // DB에서 읽어온 루틴을 리스트에 추가
+                    RoutineItem r = new RoutineItem(title);
+                    routineModel.addElement(r);
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    // 새 루틴을 DB에 INSERT
+    private void insertRoutineToDB(String title) {
+        String sql = "INSERT INTO routines (user_id, title,repeat_rule) VALUES (?,?,?)";
+
+        try (Connection con = DBConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+
+            ps.setLong(1, USER_ID);
+            ps.setString(2, title);
+            ps.setString(3,"none");
+
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+    
+    // TODOITEM 이 루틴에 해당하는지 확인
+    private boolean isRoutineTodo(TodoItem item) {
+    	if(item==null)return false;
+    	String text=item.text;
+    	for(int i=0;i<routineModel.size();i++) {
+    		RoutineItem r=routineModel.get(i);
+    		if(r.state!=RoutineState.SKIP && text.equals(r.text)) {
+    			return true;
+    		}
+    	}
+    	return false;
+    	
+    }
+    
+    
+    // DB에서 현재 상태 DONE인지 확인
+ //  DB에서 현재 status가 DONE인지 확인
+    private boolean isDoneInDB(long groupId) {
+        if (groupId == 0L) return false;  // 루틴 등 DB 없는 항목
+
+        String sql = "SELECT status FROM todos WHERE user_id = ? AND group_id = ? LIMIT 1";
+
+        try (Connection con = DBConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+
+            ps.setLong(1, USER_ID);
+            ps.setLong(2, groupId);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    String status = rs.getString("status");
+                    return "DONE".equalsIgnoreCase(status);
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+
+    // 체크박스 눌렀을떄 DB 업데이트
+    private void updateStatusInDB(long groupId, boolean done) {
+        if (groupId == 0L) return; 
+
+        String sql = "UPDATE todos SET status = ? WHERE user_id = ? AND group_id = ?";
+
+        try (Connection con = DBConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+
+            ps.setString(1, done ? "DONE" : "PENDING");
+            ps.setLong(2, USER_ID);
+            ps.setLong(3, groupId);
+
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    
+    
+    
+private  class TodoCellRenderer extends JPanel implements ListCellRenderer<TodoItem>{
     private final JCheckBox checkBox;
        private final JLabel textLabel;
 
@@ -404,7 +587,7 @@ private static class TodoCellRenderer extends JPanel implements ListCellRenderer
            add(checkBox, BorderLayout.WEST);
            add(textLabel, BorderLayout.CENTER);
        }
-
+       
        @Override
        public Component getListCellRendererComponent(
                JList<? extends TodoItem> list,
@@ -420,27 +603,36 @@ private static class TodoCellRenderer extends JPanel implements ListCellRenderer
                // 텍스트
                textLabel.setText(value.text);
 
-               // 색상 (완료/밀림/일반)
-               if (value.done) {
-                   textLabel.setForeground(new Color(0, 150, 0)); // 완료: 초록
-               } else if (value.over) {
-                   textLabel.setForeground(Color.RED);           // 밀린 할 일
-               } else {
-                   textLabel.setForeground(Color.BLACK);         // 일반
-               }
-           }
+               // 기본 색
+               Color fg = Color.BLACK;
+               Color bg = list.getBackground();
 
-           // 리스트 선택 색상 반영
-           if (isSelected) {
-               setBackground(list.getSelectionBackground());
-               textLabel.setForeground(list.getSelectionForeground());
-           } else {
-               setBackground(list.getBackground());
+               // 완료 / 밀린 할 일 색
+               if (value.over) {
+                   fg = Color.RED;                // 밀린 할 일: 빨강
+               }
+
+               // 루틴 Todo면 배경을 연한 파랑으로
+               if (isRoutineTodo(value)) {
+                   fg = new Color(0, 255,0 ); // 루틴: 연한 하늘색
+               }
+
+               // 선택 상태 처리
+               if (isSelected) {
+                   setBackground(list.getSelectionBackground());
+                   textLabel.setForeground(list.getSelectionForeground());
+               } else {
+                   setBackground(bg);
+                   textLabel.setForeground(fg);
+               }
            }
 
            return this;
        }
 }
+
+
+      
     
     
 private static class RoutineCellRenderer extends JPanel implements ListCellRenderer<RoutineItem> {
@@ -453,11 +645,12 @@ private static class RoutineCellRenderer extends JPanel implements ListCellRende
         setOpaque(true);
 
         checkBox = new JCheckBox();
-        checkBox.setOpaque(false); // 배경은 패널이 담당
+        checkBox.setOpaque(false); // (상태 유지는 할 수 있지만 화면에는 안 씀)
 
-        textLabel = new JLabel(); 
+        textLabel = new JLabel();
 
-        add(checkBox, BorderLayout.WEST);
+        // [변경] 체크박스를 패널에 붙이지 않는다
+        // add(checkBox, BorderLayout.WEST);
         add(textLabel, BorderLayout.CENTER);
     }
 
