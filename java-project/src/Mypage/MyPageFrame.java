@@ -3,10 +3,15 @@ package Mypage;
 import java.awt.*;
 import java.awt.event.*;
 import java.awt.geom.Ellipse2D;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
 import javax.swing.border.TitledBorder;
+
+import database.DBConnection;
 
 public class MyPageFrame extends JPanel implements ActionListener {
 
@@ -20,20 +25,22 @@ public class MyPageFrame extends JPanel implements ActionListener {
     private JButton btnLogout;
     private JButton btnDeleteAccount;
 
-    // 색상 (배경/테두리/글자)
+    // 로그인한 사용자 id (지금은 1번 고정)
+    private long userId = 1L;
+
+    //색상
     private static final Color BG_OUTER    = new Color(236, 240, 245);
     private static final Color BG_CARD     = Color.WHITE;
     private static final Color BG_BAR      = new Color(245, 245, 245);
     private static final Color BORDER_CARD = new Color(205, 210, 220);
     private static final Color BORDER_GRP  = new Color(210, 215, 225);
-    private static final Color TEXT_MAIN   = new Color(40, 40, 40);
+    private static final Color TEXT_MAIN   = new Color(150, 150, 150);
     private static final Color TEXT_SUB    = new Color(110, 110, 110);
-    private static final Color TEXT_FADE   = new Color(150, 150, 150);
     private static final Color PROFILE_BLUE = new Color(70, 120, 210);
 
     public MyPageFrame() {
 
-        // ===== 전체 레이아웃 =====
+        //all layout
         setLayout(new BorderLayout());
         setBackground(BG_OUTER);
 
@@ -47,12 +54,12 @@ public class MyPageFrame extends JPanel implements ActionListener {
         card.setBorder(new LineBorder(BORDER_CARD));
         outer.add(card, BorderLayout.CENTER);
 
-        // ===== 상단 바 =====
+        //상단 바
         JPanel topBar = new JPanel(new BorderLayout());
         topBar.setBackground(BG_BAR);
         topBar.setBorder(new EmptyBorder(6, 12, 6, 12));
 
-        JLabel lblLeft = new JLabel("My Page");
+        JLabel lblLeft = new JLabel("MyPage");
         lblLeft.setFont(new Font("SansSerif", Font.BOLD, 13));
         lblLeft.setForeground(TEXT_MAIN);
         topBar.add(lblLeft, BorderLayout.WEST);
@@ -64,13 +71,13 @@ public class MyPageFrame extends JPanel implements ActionListener {
 
         card.add(topBar, BorderLayout.NORTH);
 
-        // ===== 가운데 : 좌/우 2분할 =====
+        //좌우분할
         JPanel center = new JPanel(new GridLayout(1, 2, 10, 0));
         center.setBackground(BG_CARD);
         center.setBorder(new EmptyBorder(15, 15, 15, 15));
         card.add(center, BorderLayout.CENTER);
 
-        // ---------- 왼쪽 : 프로필 ----------
+        //왼쪽(프로필)
         JPanel leftPanel = new JPanel();
         leftPanel.setBackground(BG_CARD);
         leftPanel.setLayout(new BoxLayout(leftPanel, BoxLayout.Y_AXIS));
@@ -121,16 +128,15 @@ public class MyPageFrame extends JPanel implements ActionListener {
         });
 
         JLabel lblName = new JLabel("사용자명");
-        lblName.setFont(new Font("SansSerif", Font.PLAIN, 18));
+        lblName.setFont(new Font("SansSerif", Font.BOLD | Font.PLAIN, 18));
         lblName.setForeground(TEXT_MAIN);
         lblName.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         JLabel lblBirth = new JLabel("생년월일 : 2000-01-01");
-        lblBirth.setFont(new Font("SansSerif", Font.PLAIN, 14));
-        lblBirth.setForeground(TEXT_FADE);
+        lblBirth.setFont(new Font("SansSerif", Font.BOLD | Font.PLAIN, 14));
+        lblBirth.setForeground(TEXT_MAIN);
         lblBirth.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        // 위·아래 균형 맞춰 중앙 배치
         leftPanel.add(Box.createVerticalGlue());
         leftPanel.add(profilePanel);
         leftPanel.add(Box.createVerticalStrut(15));
@@ -141,7 +147,7 @@ public class MyPageFrame extends JPanel implements ActionListener {
 
         center.add(leftPanel);
 
-        // ---------- 오른쪽 : 버튼 영역 ----------
+        //오른쪽(버튼)
         JPanel rightPanel = new JPanel();
         rightPanel.setBackground(BG_CARD);
         rightPanel.setLayout(new BoxLayout(rightPanel, BoxLayout.Y_AXIS));
@@ -151,7 +157,7 @@ public class MyPageFrame extends JPanel implements ActionListener {
                         "설정",
                         TitledBorder.LEFT,
                         TitledBorder.TOP,
-                        new Font("SansSerif", Font.PLAIN, 12),
+                        new Font("SansSerif",Font.PLAIN, 12),
                         TEXT_SUB
                 )
         );
@@ -161,8 +167,7 @@ public class MyPageFrame extends JPanel implements ActionListener {
         btnMyStats          = createButton("통계");
         btnReminderSettings = createButton("리마인더 설정");
         btnLogout           = createButton("로그아웃");
-        btnDeleteAccount    = createButton("계정 삭제");
-        btnDeleteAccount.setEnabled(false);
+        btnDeleteAccount    = createButton("계정 삭제");  // 활성화
 
         rightPanel.add(Box.createVerticalGlue());
         rightPanel.add(btnEditProfile);
@@ -179,32 +184,19 @@ public class MyPageFrame extends JPanel implements ActionListener {
         rightPanel.add(Box.createVerticalGlue());
 
         center.add(rightPanel);
-
-        // ===== 하단 상태바 =====
-        JPanel statusBar = new JPanel(new BorderLayout());
-        statusBar.setBackground(BG_BAR);
-        statusBar.setBorder(new EmptyBorder(3, 10, 3, 10));
-
-        JLabel lblAutoSave = new JLabel("Saved automatically at 22:00");
-        lblAutoSave.setFont(new Font("SansSerif", Font.PLAIN, 11));
-        lblAutoSave.setForeground(TEXT_SUB);
-        statusBar.add(lblAutoSave, BorderLayout.WEST);
-
-        card.add(statusBar, BorderLayout.SOUTH);
     }
 
-    // 기본 Swing 버튼 느낌 유지 (색/그라데이션은 Look&Feel에 맡김)
+    //버튼
     private JButton createButton(String text) {
         JButton b = new JButton(text);
         b.setFocusPainted(false);
-        b.setFont(new Font("SansSerif", Font.PLAIN, 14));
+        b.setFont(new Font("SansSerif",Font.BOLD | Font.PLAIN, 14));
         b.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         b.setMaximumSize(new Dimension(220, 32));
         b.setPreferredSize(new Dimension(220, 32));
         b.setMargin(new Insets(3, 15, 3, 15));
 
-        // 색/테두리 건드리지 않음 → OS/Swing 기본 스타일 그대로
         b.addActionListener(this);
         return b;
     }
@@ -226,13 +218,60 @@ public class MyPageFrame extends JPanel implements ActionListener {
         if (src == btnEditProfile) {
             new EditProfileFrame(this).setVisible(true);
         } else if (src == btnChangePassword) {
-            new ChangePasswordFrame(this).setVisible(true);
+            new ChangePasswordFrame(this, userId).setVisible(true);
         } else if (src == btnMyStats) {
-            new StatsFrame(this).setVisible(true);
+            new StatsFrame(this, userId).setVisible(true);
         } else if (src == btnReminderSettings) {
-            new ReminderFrame(this).setVisible(true);
+            new ReminderFrame(this, userId).setVisible(true);
         } else if (src == btnLogout) {
-            JOptionPane.showMessageDialog(this, "로그아웃 (DB 연동 예정)");
+            int confirm = JOptionPane.showConfirmDialog(
+                    this,
+                    "정말 로그아웃 하시겠습니까?",
+                    "로그아웃",
+                    JOptionPane.YES_NO_OPTION
+            );
+            if (confirm == JOptionPane.YES_OPTION) {
+                // 최상위 프레임 닫기
+                SwingUtilities.getWindowAncestor(this).dispose();
+            }
+        } else if (src == btnDeleteAccount) {
+            int confirm = JOptionPane.showConfirmDialog(
+                    this,
+                    "정말 계정을 삭제하시겠습니까?\n삭제 후에는 복구할 수 없습니다.",
+                    "계정 삭제",
+                    JOptionPane.YES_NO_OPTION
+            );
+            if (confirm == JOptionPane.YES_OPTION) {
+                deleteUserAccount();
+            }
+        }
+    }
+
+    // 계정 삭제(DB)
+    private void deleteUserAccount() {
+        String sql = "DELETE FROM users WHERE id = ?";
+
+        try (Connection con = DBConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+
+            ps.setLong(1, userId);
+            int deleted = ps.executeUpdate();
+
+            if (deleted > 0) {
+                JOptionPane.showMessageDialog(this, "계정이 삭제되었습니다.");
+                SwingUtilities.getWindowAncestor(this).dispose();
+            } else {
+                JOptionPane.showMessageDialog(this, "계정 삭제 실패: 사용자 정보를 찾을 수 없습니다.");
+            }
+
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            JOptionPane.showMessageDialog(
+                    this,
+                    "계정 삭제 중 오류 발생: " + ex.getMessage(),
+                    "오류",
+                    JOptionPane.ERROR_MESSAGE
+            );
         }
     }
 

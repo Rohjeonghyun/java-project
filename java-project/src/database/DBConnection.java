@@ -10,7 +10,7 @@ public class DBConnection {
     private static final String DRIVER = "com.mysql.cj.jdbc.Driver";
     private static final String URL = "jdbc:mysql://localhost:3306/java_project?serverTimezone=UTC&useUnicode=true&characterEncoding=UTF-8";
     private static final String USER = "root"; // 본인의 MySQL 아이디
-    private static final String PASS = "jh10%@jh00"; // 본인의 MySQL 비밀번호
+    private static final String PASS = "1111"; // 본인의 MySQL 비밀번호
 
     public static Connection getConnection() {
         Connection con = null;
