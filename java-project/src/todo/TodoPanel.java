@@ -109,7 +109,7 @@ public class TodoPanel extends JPanel {
                 String endTime = s.getEndTime();
                 String category= s.getCategory();
 
-                boolean done = isDoneInDB(groupId);
+                boolean done = isDoneInDB(groupId);  // DB의 todos.status 확인
 
                 todoToday.addElement(
                         new TodoItem(groupId, title, done, false, time, endTime, category)
@@ -118,11 +118,13 @@ public class TodoPanel extends JPanel {
         }
 
         // 루틴을 오늘 TODO에 다시 반영
+        // -> routines.state 를 보고 체크 여부 반영 (DONE이면 체크된 상태로)
         for (int i = 0; i < routineModel.size(); i++) {
             RoutineItem r = routineModel.get(i);
             if (r.state != RoutineState.SKIP) {      // 스킵 아닌 루틴만
+                boolean done = (r.state == RoutineState.DONE);
                 todoToday.addElement(
-                        new TodoItem(r.text, false, false, r.startTime, null, "루틴")
+                        new TodoItem(r.text, done, false, r.startTime, null, "루틴")
                 );
             }
         }
@@ -274,10 +276,26 @@ public class TodoPanel extends JPanel {
                     // 체크박스 클릭 → 완료 토글
                     TodoItem item = model.get(range);
                     item.done = !item.done;
-                    updateStatusInDB(item.groupId, item.done); // DB 업데이트
+
+                    // ★ 루틴 Todo인지 확인 (groupId == 0L + 루틴 목록에 존재)
+                    if (item.groupId == 0L && isRoutineTodo(item)) {
+                        // 루틴 상태와 동기화
+                        RoutineItem r = findRoutineByText(item.text);
+                        if (r != null) {
+                            r.state = item.done ? RoutineState.DONE : RoutineState.TODO;
+                            updateRoutineStateInDB(r);   // routines 테이블 업데이트
+                            routineList.repaint();
+                        }
+                    } else {
+                        // 일반 일정은 todos.status 업데이트
+                        updateStatusInDB(item.groupId, item.done);
+                    }
+
                     list.repaint();
-                } else if (!inCheckBox && e.getClickCount() == 2) {
-                    // 더블클릭 → 상세보기
+                    refreshROutineColorsInTodo();
+                }
+                else if (!inCheckBox && e.getClickCount() == 2) {
+                    // 더블클릭 상세보기
                     TodoItem item = model.get(range);
                     Window owner = SwingUtilities.getWindowAncestor(TodoPanel.this);
                     TodoDetailDialog dialog = new TodoDetailDialog(owner, item, list);
@@ -326,15 +344,19 @@ public class TodoPanel extends JPanel {
                 dialog.setVisible(true);
 
                 if (dialog.isConfirmed()) {
-                    String startTime = dialog.getStartTime(); // 시간 입력
+                    String startTime = dialog.getStartTime(); // 시작 시간 입력
+                    long newId = insertRoutineToDB(text, startTime); // DB INSERT + PK 반환
 
-                    insertRoutineToDB(text);   // (지금은 title만 저장)
+                    // DB에 저장된 정보 기반으로 RoutineItem 생성
+                    RoutineItem r = new RoutineItem(newId, text, RoutineState.TODO, startTime);
 
-                    RoutineItem r = new RoutineItem(text, startTime); // startTime 포함
+                    // 루틴 목록에 추가 (루틴 탭)
                     routineModel.addElement(r);
 
                     // 오늘 Todo에도 이 루틴 추가
-                    todoToday.addElement(new TodoItem(text, false, false, startTime, null, "루틴"));
+                    todoToday.addElement(
+                            new TodoItem(text, false, false, startTime, null, "루틴")
+                    );
 
                     inputField.setText("");
                     refreshROutineColorsInTodo();
@@ -350,7 +372,7 @@ public class TodoPanel extends JPanel {
                 RoutineItem r = routineModel.get(idx);
                 String routineText = r.text;
 
-                // DB에서 삭제
+                // DB에서 삭제 (현재는 title 기준, 나중에 id 기준으로 바꿔도 됨)
                 deleteRoutineFromDB(routineText);
 
                 // 메모리에서 삭제
@@ -372,6 +394,7 @@ public class TodoPanel extends JPanel {
                 String routineText = item.text;
 
                 item.state = RoutineState.SKIP;
+                updateRoutineStateInDB(item);  // DB에 SKIP 저장
 
                 routineModel.remove(idx);
                 skippedRoutineModel.addElement(item);
@@ -412,6 +435,7 @@ public class TodoPanel extends JPanel {
                     skippedRoutineModel.remove(sel);
 
                     item.state = RoutineState.TODO;
+                    updateRoutineStateInDB(item);   // DB에 TODO 저장
                     routineModel.addElement(item);
 
                     // 되돌릴 때 오늘 Todo에도 다시 추가
@@ -436,7 +460,7 @@ public class TodoPanel extends JPanel {
         return routineTab;
     }
 
-    // 루틴 상태 변경 / 더블클릭으로 시간 수정
+    // 루틴 상태 변경 / 더블클릭으로 시간 수정 (루틴 탭에서 체크/수정)
     private void addRoutineStateListener() {
         routineList.addMouseListener(new MouseAdapter() {
             @Override
@@ -456,12 +480,13 @@ public class TodoPanel extends JPanel {
                     // SKIP이면 건드리지 않음
                     if (item.state == RoutineState.SKIP) return;
 
+                    // TODO <-> DONE 토글
                     if (item.state == RoutineState.DONE) {
                         item.state = RoutineState.TODO;
                     } else {
                         item.state = RoutineState.DONE;
                     }
-
+                    updateRoutineStateInDB(item);  // DB 상태 업데이트
                     routineList.repaint();
                     refreshROutineColorsInTodo();
                 }
@@ -493,11 +518,11 @@ public class TodoPanel extends JPanel {
         todoListTomorrow.repaint();
     }
 
-    // 루틴 호출 메서드
+    // 루틴 호출 메서드 (앱 시작 시 DB에서 읽어옴)
     private void loadRoutinesFromDB() {
         routineModel.clear();
 
-        String sql = "SELECT title FROM routines WHERE user_id = ?";
+        String sql = "SELECT id, title, start_time, state FROM routines WHERE user_id = ?";
 
         try (Connection con = DBConnection.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
@@ -506,8 +531,20 @@ public class TodoPanel extends JPanel {
 
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
+                    long id = rs.getLong("id");
                     String title = rs.getString("title");
-                    RoutineItem r = new RoutineItem(title);
+                    String startTime = rs.getString("start_time");
+                    String stateStr = rs.getString("state");
+
+                    RoutineState state = RoutineState.TODO;
+                    if ("DONE".equalsIgnoreCase(stateStr)) {
+                        state = RoutineState.DONE;
+                    } else if ("SKIP".equalsIgnoreCase(stateStr)) {
+                        state = RoutineState.SKIP;
+                    }
+
+                    // 풀 생성자 사용
+                    RoutineItem r = new RoutineItem(id, title, state, startTime);
                     routineModel.addElement(r);
                 }
             }
@@ -516,24 +553,36 @@ public class TodoPanel extends JPanel {
         }
     }
 
-    // 새 루틴을 DB에 INSERT
-    private void insertRoutineToDB(String title) {
-        String sql = "INSERT INTO routines (user_id, title, repeat_rule) VALUES (?,?,?)";
+    // 새 루틴을 DB에 INSERT 하고 생성된 id를 리턴
+    private long insertRoutineToDB(String title, String startTime) {
+        String sql = "INSERT INTO routines (user_id, title, repeat_rule, start_time, state) " +
+                     "VALUES (?, ?, ?, ?, ?)";
 
         try (Connection con = DBConnection.getConnection();
-             PreparedStatement ps = con.prepareStatement(sql)) {
+             PreparedStatement ps = con.prepareStatement(
+                     sql, java.sql.Statement.RETURN_GENERATED_KEYS)) {
 
             ps.setLong(1, USER_ID);
             ps.setString(2, title);
-            ps.setString(3, "none");
+            ps.setString(3, "none");   // 반복 규칙 임시값
+            ps.setString(4, startTime);
+            ps.setString(5, "TODO");
 
             ps.executeUpdate();
+
+            // 자동 증가 PK(id) 가져오기
+            try (ResultSet rs = ps.getGeneratedKeys()) {
+                if (rs.next()) {
+                    return rs.getLong(1);   // 새로 생성된 id
+                }
+            }
         } catch (SQLException e) {
             e.printStackTrace();
         }
+        return 0L; // 실패시 0 반환
     }
 
-    // 루틴을 DB에서 삭제
+    // 루틴을 DB에서 삭제 (현재는 title 기준)
     private void deleteRoutineFromDB(String title) {
         String sql = "DELETE FROM routines WHERE user_id = ? AND title = ?";
 
@@ -549,7 +598,7 @@ public class TodoPanel extends JPanel {
         }
     }
 
-    // TODOITEM 이 루틴에 해당하는지 확인
+    // TODOITEM 이 루틴에 해당하는지 확인 (텍스트 + state != SKIP)
     private boolean isRoutineTodo(TodoItem item) {
         if (item == null) return false;
         String text = item.text;
@@ -562,7 +611,18 @@ public class TodoPanel extends JPanel {
         return false;
     }
 
-    // DB에서 현재 status가 DONE인지 확인
+    // 텍스트로 RoutineItem 찾기 (루틴 상태 동기화용)
+    private RoutineItem findRoutineByText(String text) {
+        for (int i = 0; i < routineModel.size(); i++) {
+            RoutineItem r = routineModel.get(i);
+            if (r.text != null && r.text.equals(text)) {
+                return r;
+            }
+        }
+        return null;
+    }
+
+    // DB에서 현재 status가 DONE인지 확인 (todos 테이블)
     private boolean isDoneInDB(long groupId) {
         if (groupId == 0L) return false;  // 루틴 등 DB 없는 항목
 
@@ -586,9 +646,9 @@ public class TodoPanel extends JPanel {
         return false;
     }
 
-    // 체크박스 눌렀을 때 DB 업데이트
+    // 체크박스 눌렀을 때 DB 업데이트 (일반 일정용)
     private void updateStatusInDB(long groupId, boolean done) {
-        if (groupId == 0L) return;
+        if (groupId == 0L) return;  // 루틴은 여기서 처리 안 함
 
         String sql = "UPDATE todos SET status = ? WHERE user_id = ? AND group_id = ?";
 
@@ -598,6 +658,25 @@ public class TodoPanel extends JPanel {
             ps.setString(1, done ? "DONE" : "PENDING");
             ps.setLong(2, USER_ID);
             ps.setLong(3, groupId);
+
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    // 루틴 state DB 업데이트 (routines 테이블)
+    private void updateRoutineStateInDB(RoutineItem item) {
+        if (item.id == 0L) return;  // 아직 DB id 모르면 업데이트 못함
+
+        String sql = "UPDATE routines SET state = ? WHERE id = ? AND user_id = ?";
+
+        try (Connection con = DBConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+
+            ps.setString(1, item.state.name()); // TODO / DONE / SKIP
+            ps.setLong(2, item.id);
+            ps.setLong(3, USER_ID);
 
             ps.executeUpdate();
         } catch (SQLException e) {
@@ -637,7 +716,7 @@ public class TodoPanel extends JPanel {
         }
     }
 
-    // ===== 렌더러들 =====
+    // 렌더러들 
 
     private class TodoCellRenderer extends JPanel implements ListCellRenderer<TodoItem> {
         private final JCheckBox checkBox;
@@ -679,7 +758,7 @@ public class TodoPanel extends JPanel {
                 Color fg = Color.BLACK;
                 Color bg = list.getBackground();
 
-                // 밀린 할 일
+                // 밀린 할 일 (over == true)
                 if (value.over) {
                     fg = Color.RED;
                 }
@@ -716,6 +795,8 @@ public class TodoPanel extends JPanel {
 
             textLabel = new JLabel();
 
+            // 필요하면 체크박스도 보이게 추가 가능
+            // add(checkBox, BorderLayout.WEST);
             add(textLabel, BorderLayout.CENTER);
         }
 
@@ -754,5 +835,3 @@ public class TodoPanel extends JPanel {
         }
     }
 }
-
-
