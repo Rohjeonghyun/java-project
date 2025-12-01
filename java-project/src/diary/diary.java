@@ -4,11 +4,17 @@ import java.awt.*;
 import java.awt.event.*;
 import java.io.File;
 import java.sql.*;
+import java.text.SimpleDateFormat;
 import java.time.LocalDate;
+import java.util.Calendar;
 import java.util.Vector;
 import javax.swing.*;
+import javax.swing.border.EmptyBorder;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.table.DefaultTableModel;
+
+// [중요] 팀 프로젝트의 DBConnection 클래스 사용
+import database.DBConnection;
 
 public class diary extends JPanel {
     
@@ -20,51 +26,51 @@ public class diary extends JPanel {
     private JLabel imagePreviewLabel; 
     private JComboBox<String> weatherCombo;
     
+    // 알람 시그널 라벨
+    private JLabel signalStatusLabel;
+    
+    // 검색 탭 컴포넌트
     private JTextField searchTagField;
     private JTextArea searchResultArea;
     
+    // --- [일기 목록 탭 컴포넌트] ---
     private JTable listTable;
     private DefaultTableModel tableModel;
+    private JLabel listYearMonthLabel; 
+    private Calendar listCalendar;     
 
     private String selectedImagePath = null;
     private long loggedInUserId; 
 
-    // DB 연결 정보
-    private final String DB_URL = "jdbc:mysql://localhost:3306/java?serverTimezone=UTC";
-    private final String DB_USER = "root";
-    private final String DB_PASS = "1234";
-
-    // ==========================================================
-    // [핵심 변경] 생성자를 2개 만들어서 선택적으로 쓰게 함
-    // ==========================================================
-
-    // 1. ID 없이 그냥 불렀을 때 (기본값 1번 유저로 설정) -> TestFile에서 에러 안 남!
     public diary() {
-        this(1L); // 아래에 있는 2번 생성자를 호출하면서 1을 넘겨줌
+        this(1L); 
     }
 
-    // 2. ID를 넣어서 불렀을 때 (나중에 로그인 기능이랑 연결할 때 씀)
     public diary(long userId) {
         this.loggedInUserId = userId; 
+        
+        // 목록 조회용 달력 객체 생성
+        listCalendar = Calendar.getInstance();
 
         setLayout(new BorderLayout());
 
         JTabbedPane mainTab = new JTabbedPane();
         mainTab.addTab("일기 쓰기", createWritePanel());
-        mainTab.addTab("일기 목록", createListPanel());
+        mainTab.addTab("일기 모아보기", createListPanel()); 
         mainTab.addTab("태그 검색", createSearchPanel());
 
         mainTab.addChangeListener(e -> {
             if (mainTab.getSelectedIndex() == 1) { 
-                loadDiaryList();
+                loadDiaryListByMonth();
             }
         });
 
         add(mainTab, BorderLayout.CENTER);
+        
+        updateSignal();
     }
-    // ==========================================================
 
-    // [UI 1] 일기 쓰기 화면
+    // --- [UI 1] 일기 쓰기 화면 ---
     private JPanel createWritePanel() {
         JPanel panel = new JPanel(new BorderLayout(10, 10));
         panel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
@@ -78,14 +84,21 @@ public class diary extends JPanel {
         String[] weathers = {"Sunny", "Cloudy", "Rainy", "Snowy"};
         weatherCombo = new JComboBox<>(weathers);
         
+        signalStatusLabel = new JLabel(" Signal: ? ");
+        signalStatusLabel.setFont(new Font("SansSerif", Font.BOLD, 14));
+        signalStatusLabel.setForeground(Color.GRAY);
+
         dateWeatherPanel.add(dateLabel);
         dateWeatherPanel.add(new JLabel("  |  Weather: "));
         dateWeatherPanel.add(weatherCombo);
+        dateWeatherPanel.add(new JLabel("  |  ")); 
+        dateWeatherPanel.add(signalStatusLabel); 
 
         titleField = new JTextField();
         titleField.setBorder(BorderFactory.createTitledBorder("Title"));
+        
         tagField = new JTextField();
-        tagField.setBorder(BorderFactory.createTitledBorder("Tags (예: #여행 #맛집)"));
+        tagField.setBorder(BorderFactory.createTitledBorder("Tags (공백 구분, #으로 시작. 예: #여행 #맛집)"));
 
         topPanel.add(dateWeatherPanel);
         topPanel.add(titleField);
@@ -127,15 +140,36 @@ public class diary extends JPanel {
         return panel;
     }
 
-    // [UI 2] 일기 목록 화면
+    // --- [UI 2] 일기 목록 화면 ---
     private JPanel createListPanel() {
         JPanel panel = new JPanel(new BorderLayout(10, 10));
-        panel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+        panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
-        JLabel lblTitle = new JLabel("나의 일기 목록 (더블 클릭하여 상세 보기)");
-        lblTitle.setFont(new Font("Malgun Gothic", Font.BOLD, 14));
-        lblTitle.setHorizontalAlignment(SwingConstants.CENTER);
-        panel.add(lblTitle, BorderLayout.NORTH);
+        JPanel navPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 5));
+        JButton prevBtn = new JButton("<");
+        JButton nextBtn = new JButton(">");
+        
+        listYearMonthLabel = new JLabel("");
+        listYearMonthLabel.setFont(new Font("맑은 고딕", Font.BOLD, 20));
+        updateListLabel(); 
+
+        prevBtn.addActionListener(e -> {
+            listCalendar.add(Calendar.MONTH, -1); 
+            updateListLabel();      
+            loadDiaryListByMonth(); 
+        });
+
+        nextBtn.addActionListener(e -> {
+            listCalendar.add(Calendar.MONTH, 1);  
+            updateListLabel();      
+            loadDiaryListByMonth(); 
+        });
+
+        navPanel.add(prevBtn);
+        navPanel.add(listYearMonthLabel);
+        navPanel.add(nextBtn);
+        
+        panel.add(navPanel, BorderLayout.NORTH);
 
         String[] columnNames = {"ID", "날짜", "날씨", "제목"};
         tableModel = new DefaultTableModel(columnNames, 0) {
@@ -163,14 +197,14 @@ public class diary extends JPanel {
 
         panel.add(new JScrollPane(listTable), BorderLayout.CENTER);
         
-        JButton btnRefresh = new JButton("목록 새로고침");
-        btnRefresh.addActionListener(e -> loadDiaryList());
+        JButton btnRefresh = new JButton("현재 달 목록 새로고침");
+        btnRefresh.addActionListener(e -> loadDiaryListByMonth());
         panel.add(btnRefresh, BorderLayout.SOUTH);
 
         return panel;
     }
 
-    // [UI 3] 태그 검색 화면
+    // --- [UI 3] 태그 검색 화면 ---
     private JPanel createSearchPanel() {
         JPanel panel = new JPanel(new BorderLayout(10, 10));
         panel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
@@ -193,7 +227,8 @@ public class diary extends JPanel {
         return panel;
     }
 
-    // [기능 구현]
+    // --- [기능 구현] ---
+
     private void chooseImage() {
         JFileChooser fileChooser = new JFileChooser();
         fileChooser.setFileFilter(new FileNameExtensionFilter("Images", "jpg", "png", "jpeg"));
@@ -224,9 +259,21 @@ public class diary extends JPanel {
             return;
         }
 
+        if (!tags.isEmpty()) { 
+            String[] tagParts = tags.split("\\s+");
+            for (String part : tagParts) {
+                if (!part.startsWith("#")) {
+                    JOptionPane.showMessageDialog(this, 
+                        "태그 형식이 잘못되었습니다.\n모든 태그는 '#'으로 시작해야 합니다.\n(예: #안녕 #하세요)");
+                    return; 
+                }
+            }
+        }
+
         String sql = "INSERT INTO diary_entries (user_id, entry_date, title, content, weather, image_path, tags) VALUES (?, CURDATE(), ?, ?, ?, ?, ?)";
 
-        try (Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASS);
+        // [DB 충돌 방지] DBConnection 사용
+        try (Connection conn = DBConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
             pstmt.setLong(1, loggedInUserId);
@@ -240,6 +287,7 @@ public class diary extends JPanel {
 
             if (result > 0) {
                 JOptionPane.showMessageDialog(this, "일기가 저장되었습니다!");
+                
                 titleField.setText("");
                 contentArea.setText("");
                 tagField.setText("");
@@ -247,7 +295,9 @@ public class diary extends JPanel {
                 imagePreviewLabel.setIcon(null);
                 imagePreviewLabel.setText("사진 미리보기");
                 selectedImagePath = null;
-                loadDiaryList();
+                
+                loadDiaryListByMonth(); 
+                updateSignal();
             }
 
         } catch (Exception ex) {
@@ -256,14 +306,23 @@ public class diary extends JPanel {
         }
     }
 
-    private void loadDiaryList() {
+    private void loadDiaryListByMonth() {
         tableModel.setRowCount(0);
-        String sql = "SELECT id, entry_date, weather, title FROM diary_entries WHERE user_id = ? ORDER BY entry_date DESC, id DESC";
         
-        try (Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASS);
+        int year = listCalendar.get(Calendar.YEAR);
+        int month = listCalendar.get(Calendar.MONTH) + 1; 
+
+        String sql = "SELECT id, entry_date, weather, title FROM diary_entries " +
+                     "WHERE user_id = ? AND YEAR(entry_date) = ? AND MONTH(entry_date) = ? " +
+                     "ORDER BY entry_date ASC, id ASC"; 
+        
+        try (Connection conn = DBConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
              
             pstmt.setLong(1, loggedInUserId);
+            pstmt.setInt(2, year);
+            pstmt.setInt(3, month);
+
             ResultSet rs = pstmt.executeQuery();
             
             while(rs.next()) {
@@ -278,11 +337,17 @@ public class diary extends JPanel {
             ex.printStackTrace();
         }
     }
+    
+    private void updateListLabel() {
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy년 MM월");
+        listYearMonthLabel.setText(sdf.format(listCalendar.getTime()));
+    }
 
+    // [삭제 기능 포함] 상세 보기 메서드
     private void showDiaryDetail(String diaryId) {
         String sql = "SELECT * FROM diary_entries WHERE id = ?";
         
-        try (Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASS);
+        try (Connection conn = DBConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
              
             pstmt.setString(1, diaryId);
@@ -315,10 +380,61 @@ public class diary extends JPanel {
                         detailPanel.add(new JLabel(new ImageIcon(img)), BorderLayout.SOUTH);
                     } catch (Exception e) {}
                 }
-                JOptionPane.showMessageDialog(this, detailPanel, "일기 상세 보기", JOptionPane.PLAIN_MESSAGE);
+                
+                // 삭제 버튼 추가된 옵션
+                Object[] options = {"닫기", "삭제"};
+                
+                int choice = JOptionPane.showOptionDialog(
+                    this, 
+                    detailPanel, 
+                    "일기 상세 보기", 
+                    JOptionPane.YES_NO_OPTION, 
+                    JOptionPane.PLAIN_MESSAGE, 
+                    null, 
+                    options, 
+                    options[0]
+                );
+
+                if (choice == 1) { // 삭제 버튼 클릭 시
+                    deleteDiary(diaryId);
+                }
             }
         } catch (Exception ex) {
             ex.printStackTrace();
+        }
+    }
+
+    // [추가된 삭제 로직]
+    private void deleteDiary(String diaryId) {
+        int confirm = JOptionPane.showConfirmDialog(
+            this, 
+            "정말로 이 일기를 삭제하시겠습니까?\n삭제 후에는 복구할 수 없습니다.", 
+            "삭제 확인", 
+            JOptionPane.YES_NO_OPTION, 
+            JOptionPane.WARNING_MESSAGE
+        );
+
+        if (confirm == JOptionPane.YES_OPTION) {
+            String sql = "DELETE FROM diary_entries WHERE id = ?";
+            
+            try (Connection conn = DBConnection.getConnection();
+                 PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                
+                pstmt.setString(1, diaryId);
+                int result = pstmt.executeUpdate();
+                
+                if (result > 0) {
+                    JOptionPane.showMessageDialog(this, "일기가 삭제되었습니다.");
+                    loadDiaryListByMonth();
+                    updateSignal(); 
+                } else {
+                    JOptionPane.showMessageDialog(this, "삭제에 실패했습니다.");
+                }
+                
+            } catch (Exception e) {
+                e.printStackTrace();
+                JOptionPane.showMessageDialog(this, "DB 오류: " + e.getMessage());
+            }
         }
     }
 
@@ -329,7 +445,7 @@ public class diary extends JPanel {
         searchResultArea.setText(""); 
         String sql = "SELECT * FROM diary_entries WHERE user_id = ? AND tags LIKE ? ORDER BY entry_date DESC";
 
-        try (Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASS);
+        try (Connection conn = DBConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
             pstmt.setLong(1, loggedInUserId);
@@ -358,13 +474,45 @@ public class diary extends JPanel {
         }
     }
 
+    // [신호 로직 1]
+    public int getTodaySignal() {
+        int signal = 0;
+        String sql = "SELECT count(*) FROM diary_entries WHERE user_id = ? AND entry_date = CURDATE()";
+
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setLong(1, loggedInUserId);
+            ResultSet rs = pstmt.executeQuery();
+            if (rs.next()) {
+                if (rs.getInt(1) > 0) {
+                    signal = 1;
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return signal; 
+    }
+    
+    // [신호 로직 2]
+    public void updateSignal() {
+        int signal = getTodaySignal();
+        System.out.println(">>> [SIGNAL SEND] 현재 신호 값: " + signal);
+        
+        if (signal == 1) {
+            signalStatusLabel.setText(" 작성 완료 (Signal: 1) ");
+            signalStatusLabel.setForeground(new Color(0, 150, 0)); 
+        } else {
+            signalStatusLabel.setText(" 오늘 미작성 "); 
+            signalStatusLabel.setForeground(Color.RED); 
+        }
+    }
+
     public static void main(String[] args) {
         JFrame frame = new JFrame("심플 다이어리");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        
-        // main에서 실행할 때도 그냥 new diary() 하면 알아서 1번 아이디로 됨
         frame.getContentPane().add(new diary()); 
-        
         frame.setSize(800, 600);
         frame.setLocationRelativeTo(null);
         frame.setVisible(true);
