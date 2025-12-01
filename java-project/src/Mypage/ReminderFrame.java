@@ -7,11 +7,6 @@ import java.sql.*;
 
 import database.DBConnection;
 
-/**
-* 일기 알림 설정 화면
-*  알림 사용 여부 + 시간 설정
-*  현재 DB 연동 저장/불러오기 가능
-*/
 public class ReminderFrame extends JFrame {
 
     private JCheckBox cbEnableDailyReminder;
@@ -21,10 +16,9 @@ public class ReminderFrame extends JFrame {
     private long userId;
 
     public ReminderFrame(Component owner) {
-        this(owner, 1L);//임의유저아이디값
+        this(owner, 1L);
     }
 
-    //생성자=>로그인 구현 시 userId 전달 필요성 있음
     public ReminderFrame(Component owner, long userId) {
         this.userId = userId;
 
@@ -79,13 +73,13 @@ public class ReminderFrame extends JFrame {
 
         add(panel);
 
-        //창 열림 기점으로 기존 설정 불러옴
         loadReminderFromDB();
     }
 
-    //DB기존 리마인더 설정 불러옴
+    // [수정] DB 컬럼명(on_off)에 맞춰 조회
     private void loadReminderFromDB() {
-        String sql = "SELECT enabled, remind_time FROM reminder_settings WHERE user_id = ?";
+        // diary_id 제거, enabled -> on_off 로 변경
+        String sql = "SELECT on_off, remind_time FROM reminder_settings WHERE user_id = ?";
 
         try (Connection con = DBConnection.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
@@ -94,7 +88,8 @@ public class ReminderFrame extends JFrame {
 
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
-                    boolean enabled = rs.getBoolean("enabled");
+                    // DB의 on_off 컬럼(1/0)을 boolean으로 읽음
+                    boolean enabled = rs.getBoolean("on_off");
                     cbEnableDailyReminder.setSelected(enabled);
 
                     Time t = rs.getTime("remind_time");
@@ -112,25 +107,25 @@ public class ReminderFrame extends JFrame {
         }
     }
 
-    //DB 리마인더 설정 저장
+    // [수정] diary_id 제거 및 on_off 컬럼 사용
     private void saveReminder() {
         boolean enabled = cbEnableDailyReminder.isSelected();
         int hour = (Integer) spHour.getValue();
         int min  = (Integer) spMinute.getValue();
         
+        // diary_id 컬럼 제거, enabled -> on_off로 변경
         String sql =
-            "INSERT INTO reminder_settings (user_id, enabled, remind_time) " +
+            "INSERT INTO reminder_settings (user_id, on_off, remind_time) " +
             "VALUES (?, ?, ?) " +
             "ON DUPLICATE KEY UPDATE " +
-            "enabled = VALUES(enabled), remind_time = VALUES(remind_time)";
+            "on_off = VALUES(on_off), remind_time = VALUES(remind_time)";
 
         try (Connection con = DBConnection.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
 
             ps.setLong(1, userId);
-            ps.setBoolean(2, enabled);
+            ps.setBoolean(2, enabled); // boolean true/false -> TINYINT 1/0 자동 매핑됨
 
-            //0시:0분:0초
             String timeStr = String.format("%02d:%02d:00", hour, min);
             ps.setTime(3, java.sql.Time.valueOf(timeStr));
 
