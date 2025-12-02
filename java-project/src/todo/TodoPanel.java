@@ -39,8 +39,7 @@ public class TodoPanel extends JPanel implements ActionListener {
 
     private final SimpleDateFormat dateKeyFormat = new SimpleDateFormat("yyyy-MM-dd");
 
-    // --- Buttons ---
-    private JButton categoryManageButton;
+
     private JButton addTodayTodoBtn, addTomorrowTodoBtn; // [NEW] 할 일 추가 버튼
 
     /**
@@ -197,9 +196,6 @@ public class TodoPanel extends JPanel implements ActionListener {
         // 상단 카테고리 관리 버튼 패널
         JPanel topPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         topPanel.setBackground(Color.white);
-        categoryManageButton = new JButton("카테고리 관리");
-        categoryManageButton.addActionListener(this);
-        topPanel.add(categoryManageButton);
         root.add(topPanel, BorderLayout.NORTH);
 
         // 할 일 리스트 패널 (좌: 오늘, 우: 내일)
@@ -364,14 +360,7 @@ public class TodoPanel extends JPanel implements ActionListener {
     public void actionPerformed(ActionEvent e) {
         Object source = e.getSource();
 
-        if (source == categoryManageButton) {
-            Window parentFrame = SwingUtilities.getWindowAncestor(this);
-            // 카테고리 관리 창 띄우기 (CalendarDAO 사용)
-            calendars.CategoryManagerDialog dialog = 
-                new calendars.CategoryManagerDialog(parentFrame, "카테고리 관리", categories, calendarDao);
-            dialog.setVisible(true);
-        
-        } else if (source == addTodayTodoBtn || source == addTomorrowTodoBtn) {
+        if (source == addTodayTodoBtn || source == addTomorrowTodoBtn) {
             // [NEW] 할 일 추가 버튼 클릭 시 ScheduleDialog 호출
             Calendar targetDate = Calendar.getInstance();
             if (source == addTomorrowTodoBtn) {
