@@ -2,8 +2,8 @@ package calendars;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
-import java.awt.Dialog;
 import java.awt.FlowLayout;
+import java.awt.Window;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.util.Vector;
@@ -36,10 +36,10 @@ public class CategoryManagerDialog extends JDialog implements ActionListener {
     /**
      * 생성자: CalendarDAO를 추가로 받습니다.
      */
-    public CategoryManagerDialog(Dialog parent, String title, Vector<CategoryItem> categories, CalendarDAO dao) {
+    public CategoryManagerDialog(Window parent, String title, Vector<CategoryItem> categories, CalendarDAO dao) {
         super(parent, title, ModalityType.APPLICATION_MODAL);
         this.categories = categories;
-        this.dao = dao; // [NEW] DAO 저장
+        this.dao = dao;
 
         // --- 1. 메인 패널 ---
         JPanel mainPanel = new JPanel(new BorderLayout(10, 10));
