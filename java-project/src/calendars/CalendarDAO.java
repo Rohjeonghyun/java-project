@@ -12,9 +12,17 @@ import database.DBConnection;
 
 public class CalendarDAO {
 
-    // (임시) 현재 로그인한 사용자 ID (로그인 연동 전까지 1로 고정)
-    private static final long USER_ID = 1L;
+    // [수정] 고정된 상수 제거 -> 멤버 변수로 변경
+    private long userId;
 
+    // [수정] 생성자에서 userId를 받아서 저장
+    public CalendarDAO(long userId) {
+        this.userId = userId;
+    }
+
+    /**
+     * DB에서 사용자의 카테고리 목록을 불러옵니다.
+     */
     public Vector<CategoryItem> getCategories() {
         Vector<CategoryItem> list = new Vector<>();
         String sql = "SELECT name, color_hex FROM categories WHERE user_id = ?";
@@ -22,7 +30,7 @@ public class CalendarDAO {
         try (Connection con = DBConnection.getConnection();
              PreparedStatement pstmt = con.prepareStatement(sql)) {
             
-            pstmt.setLong(1, USER_ID);
+            pstmt.setLong(1, userId); // [수정] this.userId 사용
             
             try (ResultSet rs = pstmt.executeQuery()) {
                 while (rs.next()) {
@@ -38,9 +46,6 @@ public class CalendarDAO {
         return list;
     }
 
-    /**
-     * 새 카테고리 추가
-     */
     public boolean addCategory(String name, Color color) {
         String sql = "INSERT INTO categories (user_id, name, color_hex) VALUES (?, ?, ?)";
         String hexColor = String.format("#%02x%02x%02x", color.getRed(), color.getGreen(), color.getBlue());
@@ -48,7 +53,7 @@ public class CalendarDAO {
         try (Connection con = DBConnection.getConnection();
              PreparedStatement pstmt = con.prepareStatement(sql)) {
             
-            pstmt.setLong(1, USER_ID);
+            pstmt.setLong(1, userId); // [수정]
             pstmt.setString(2, name);
             pstmt.setString(3, hexColor);
             
@@ -59,16 +64,13 @@ public class CalendarDAO {
         }
     }
 
-    /**
-     * 카테고리 삭제
-     */
     public boolean deleteCategory(String name) {
         String sql = "DELETE FROM categories WHERE user_id = ? AND name = ?";
 
         try (Connection con = DBConnection.getConnection();
              PreparedStatement pstmt = con.prepareStatement(sql)) {
             
-            pstmt.setLong(1, USER_ID);
+            pstmt.setLong(1, userId); // [수정]
             pstmt.setString(2, name);
             
             return pstmt.executeUpdate() > 0;
@@ -78,9 +80,6 @@ public class CalendarDAO {
         }
     }
     
-    /**
-     * 카테고리 색상 수정
-     */
     public boolean updateCategoryColor(String name, Color newColor) {
         String sql = "UPDATE categories SET color_hex = ? WHERE user_id = ? AND name = ?";
         String hexColor = String.format("#%02x%02x%02x", newColor.getRed(), newColor.getGreen(), newColor.getBlue());
@@ -89,7 +88,7 @@ public class CalendarDAO {
              PreparedStatement pstmt = con.prepareStatement(sql)) {
             
             pstmt.setString(1, hexColor);
-            pstmt.setLong(2, USER_ID);
+            pstmt.setLong(2, userId); // [수정]
             pstmt.setString(3, name);
             
             return pstmt.executeUpdate() > 0;
@@ -99,10 +98,7 @@ public class CalendarDAO {
         }
     }
 
-
-    // =============================================================
-    // [2] 일정(Schedule) 관련 메소드
-    // =============================================================
+    // --- 일정 관련 ---
 
     public boolean addSchedule(ScheduleItem item) {
         String sql = "INSERT INTO todos (user_id, title, due_date, start_time, end_time, category_id, group_id, status) " +
@@ -111,13 +107,13 @@ public class CalendarDAO {
         try (Connection con = DBConnection.getConnection();
              PreparedStatement pstmt = con.prepareStatement(sql)) {
             
-            pstmt.setLong(1, USER_ID);
+            pstmt.setLong(1, userId); // [수정]
             pstmt.setString(2, item.getTitle());
             pstmt.setString(3, item.getDate()); 
             pstmt.setTime(4, convertStringToTime(item.getStartTime()));
             pstmt.setTime(5, convertStringToTime(item.getEndTime()));
             pstmt.setString(6, item.getCategory());
-            pstmt.setLong(7, USER_ID);
+            pstmt.setLong(7, userId); // [수정] 서브쿼리용
             pstmt.setLong(8, item.getId());
             
             return pstmt.executeUpdate() > 0;
@@ -136,7 +132,7 @@ public class CalendarDAO {
         try (Connection con = DBConnection.getConnection();
              PreparedStatement pstmt = con.prepareStatement(sql)) {
             
-            pstmt.setLong(1, USER_ID);
+            pstmt.setLong(1, userId); // [수정]
             pstmt.setInt(2, year);
             pstmt.setInt(3, month);
             
@@ -164,7 +160,8 @@ public class CalendarDAO {
     }
 
     public boolean deleteScheduleByGroupId(long groupId) {
-        String sql = "DELETE FROM todos WHERE group_id = ?";
+        String sql = "DELETE FROM todos WHERE group_id = ?"; 
+        // group_id는 유니크하므로 user_id 검사 생략 가능하지만, 안전하게 하려면 추가해도 됨
 
         try (Connection con = DBConnection.getConnection();
              PreparedStatement pstmt = con.prepareStatement(sql)) {
@@ -176,9 +173,8 @@ public class CalendarDAO {
             return false;
         }
     }
-    // =============================================================
-    // --- 유틸리티 메소드 ---
-    // =============================================================
+
+    // --- 유틸리티 ---
     private Time convertStringToTime(String timeStr) {
         try {
             if (timeStr == null || timeStr.isEmpty()) return null;
@@ -186,7 +182,6 @@ public class CalendarDAO {
             int hour = Integer.parseInt(parts[0].trim());
             int min = 0;
             if (parts.length > 1) min = Integer.parseInt(parts[1].trim());
-            
             String timeFormat = String.format("%02d:%02d:00", hour, min);
             return Time.valueOf(timeFormat);
         } catch (Exception e) {

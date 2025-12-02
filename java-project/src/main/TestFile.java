@@ -1,49 +1,51 @@
 package main;
 
-import javax.swing.*;
-import java.awt.*;
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Component;
 import java.util.Vector;
 
+import javax.swing.JFrame;
+import javax.swing.JTabbedPane;
+import javax.swing.SwingUtilities;
+
 import Mypage.MyPageFrame;
-import todo.TodoPanel;
 import calendars.CalendarDAO;
 import calendars.CalendarPanel;
 import calendars.CategoryItem;
 import diary.diary;
-
-// [수정] LoginWindow 대신 login 클래스를 import
-import login.login; 
+import login.login;
+import todo.TodoPanel; 
 
 public class TestFile extends JFrame {
 
-    // 1. 생성자: 로그인한 유저의 ID(userId)를 받습니다.
     public TestFile(long userId) {
         
-        CalendarDAO dao = new CalendarDAO();
-        Vector<CategoryItem> categories = dao.getCategories();
+        // 1. [수정] DAO 생성 시 userId 전달
+        CalendarDAO dao = new CalendarDAO(userId);
         
+        Vector<CategoryItem> categories = dao.getCategories();
         if (categories.isEmpty()) {
             categories.add(new CategoryItem("기본", Color.LIGHT_GRAY));
         }
 
         JTabbedPane tabs = new JTabbedPane();
         
+        // CalendarPanel은 categories와 dao만 받으면 됨 (dao가 이미 userId를 가지고 있음)
         CalendarPanel calendarPanel = new CalendarPanel(categories, dao);
-        TodoPanel todoPanel = new TodoPanel(calendarPanel);
+        
+        // 2. [수정] TodoPanel 생성 시 userId 전달
+        TodoPanel todoPanel = new TodoPanel(userId, calendarPanel, categories, dao);
 
-        // 2. 탭 추가
         tabs.addTab("Todo",     todoPanel);
         tabs.addTab("Calendar", calendarPanel);
+        // MyPageFrame 등 다른 탭도 필요하다면 userId를 넘겨야 함 (현재 코드는 안 넘김)
         tabs.addTab("MyPage",   new MyPageFrame());
+        tabs.addTab("diary",    new diary(userId));
         
-        // [중요] 로그인할 때 받은 userId를 diary에게 전달합니다.
-        tabs.addTab("diary", new diary(userId));
-        
-        // 탭 변경 시 새로고침 리스너
         tabs.addChangeListener(e -> {
             JTabbedPane tp = (JTabbedPane)e.getSource();
             Component selected = tp.getSelectedComponent();
-            
             if(selected == todoPanel) {
                 todoPanel.refreshFromCalendar();
             }
@@ -55,8 +57,7 @@ public class TestFile extends JFrame {
         setSize(1000, 700);
         setLocationRelativeTo(null);
     }
-
-    // 3. 메인 메서드: 이제 여기서 'login' 창을 먼저 띄웁니다.
+    
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
             // [수정] LoginWindow -> login 으로 클래스 이름 변경
@@ -67,4 +68,6 @@ public class TestFile extends JFrame {
             win.setVisible(true);
         });
     }
+
+
 }
