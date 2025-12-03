@@ -450,23 +450,30 @@ public class TodoPanel extends JPanel implements ActionListener {
                     
                     routineList.repaint();
                     refreshROutineColorsInTodo(); // 할일 탭의 루틴 색상도 갱신
-                } else if (!inCheckBox && e.getClickCount() == 2) {
-                    // 더블 클릭 시 시간 수정
-                    RoutineItem item = routineModel.get(index);
-                    Window owner = SwingUtilities.getWindowAncestor(TodoPanel.this);
-                    RoutineDetailDialog dialog = new RoutineDetailDialog(owner, item.text, item.startTime);
-                    dialog.setVisible(true);
+            } else if (!inCheckBox && e.getClickCount() == 2) {
+                // 더블 클릭 시 시간 수정
+                RoutineItem item = routineModel.get(index);
+                Window owner = SwingUtilities.getWindowAncestor(TodoPanel.this);
+                RoutineDetailDialog dialog = new RoutineDetailDialog(owner, item.text, item.startTime);
+                dialog.setVisible(true);
 
-                    if (dialog.isConfirmed()) {
-                        // [주의] 루틴 시간 업데이트 DAO 메소드는 현재 없으므로, 
-                        // 루틴을 삭제하고 다시 추가하는 방식으로 하거나 DAO에 update 메소드 추가 필요.
-                        // 여기서는 메모리 상 변경만 반영됨. (필요 시 DAO 추가 구현)
-                        item.startTime = dialog.getStartTime();
+                if (dialog.isConfirmed()) {
+                    String newTime = dialog.getStartTime();
+
+                    // [FIX] DB에 변경된 시간 저장 호출
+                    if (routineDao.updateRoutineTime(userId, item.id, newTime)) {
+                        // DB 저장 성공 시 메모리(UI)도 업데이트
+                        item.startTime = newTime;
                         routineList.repaint();
+                        
+                        // 할 일 목록에 표시된 루틴 시간도 동기화
                         syncRoutineTimeToTodos(item.text, item.startTime);
                         repaint();
+                    } else {
+                        JOptionPane.showMessageDialog(TodoPanel.this, "루틴 시간 수정 실패 (DB 오류)");
                     }
                 }
+            }
             }
         });
     }
