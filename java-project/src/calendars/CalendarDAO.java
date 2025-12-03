@@ -12,10 +12,8 @@ import database.DBConnection;
 
 public class CalendarDAO {
 
-    // [수정] 고정된 상수 제거 -> 멤버 변수로 변경
     private long userId;
 
-    // [수정] 생성자에서 userId를 받아서 저장
     public CalendarDAO(long userId) {
         this.userId = userId;
     }
@@ -30,7 +28,7 @@ public class CalendarDAO {
         try (Connection con = DBConnection.getConnection();
              PreparedStatement pstmt = con.prepareStatement(sql)) {
             
-            pstmt.setLong(1, userId); // [수정] this.userId 사용
+            pstmt.setLong(1, userId);
             
             try (ResultSet rs = pstmt.executeQuery()) {
                 while (rs.next()) {
@@ -53,7 +51,7 @@ public class CalendarDAO {
         try (Connection con = DBConnection.getConnection();
              PreparedStatement pstmt = con.prepareStatement(sql)) {
             
-            pstmt.setLong(1, userId); // [수정]
+            pstmt.setLong(1, userId);
             pstmt.setString(2, name);
             pstmt.setString(3, hexColor);
             
@@ -70,7 +68,7 @@ public class CalendarDAO {
         try (Connection con = DBConnection.getConnection();
              PreparedStatement pstmt = con.prepareStatement(sql)) {
             
-            pstmt.setLong(1, userId); // [수정]
+            pstmt.setLong(1, userId);
             pstmt.setString(2, name);
             
             return pstmt.executeUpdate() > 0;
@@ -88,7 +86,7 @@ public class CalendarDAO {
              PreparedStatement pstmt = con.prepareStatement(sql)) {
             
             pstmt.setString(1, hexColor);
-            pstmt.setLong(2, userId); // [수정]
+            pstmt.setLong(2, userId);
             pstmt.setString(3, name);
             
             return pstmt.executeUpdate() > 0;
@@ -107,13 +105,22 @@ public class CalendarDAO {
         try (Connection con = DBConnection.getConnection();
              PreparedStatement pstmt = con.prepareStatement(sql)) {
             
-            pstmt.setLong(1, userId); // [수정]
+            // [FIX] 시간 변환 결과를 미리 받아서 null 체크 수행
+            Time startTime = convertStringToTime(item.getStartTime());
+            Time endTime = convertStringToTime(item.getEndTime());
+
+            if (startTime == null || endTime == null) {
+                System.err.println("일정 추가 실패: 시간 형식이 올바르지 않습니다. (" + item.getStartTime() + " ~ " + item.getEndTime() + ")");
+                return false; 
+            }
+
+            pstmt.setLong(1, userId);
             pstmt.setString(2, item.getTitle());
             pstmt.setString(3, item.getDate()); 
-            pstmt.setTime(4, convertStringToTime(item.getStartTime()));
-            pstmt.setTime(5, convertStringToTime(item.getEndTime()));
+            pstmt.setTime(4, startTime); // 안전하게 변환된 값 사용
+            pstmt.setTime(5, endTime);   // 안전하게 변환된 값 사용
             pstmt.setString(6, item.getCategory());
-            pstmt.setLong(7, userId); // [수정] 서브쿼리용
+            pstmt.setLong(7, userId);
             pstmt.setLong(8, item.getId());
             
             return pstmt.executeUpdate() > 0;
@@ -132,7 +139,7 @@ public class CalendarDAO {
         try (Connection con = DBConnection.getConnection();
              PreparedStatement pstmt = con.prepareStatement(sql)) {
             
-            pstmt.setLong(1, userId); // [수정]
+            pstmt.setLong(1, userId);
             pstmt.setInt(2, year);
             pstmt.setInt(3, month);
             
@@ -161,7 +168,6 @@ public class CalendarDAO {
 
     public boolean deleteScheduleByGroupId(long groupId) {
         String sql = "DELETE FROM todos WHERE group_id = ?"; 
-        // group_id는 유니크하므로 user_id 검사 생략 가능하지만, 안전하게 하려면 추가해도 됨
 
         try (Connection con = DBConnection.getConnection();
              PreparedStatement pstmt = con.prepareStatement(sql)) {
@@ -178,13 +184,16 @@ public class CalendarDAO {
     private Time convertStringToTime(String timeStr) {
         try {
             if (timeStr == null || timeStr.isEmpty()) return null;
+            // "14시 30분" 같은 형식을 파싱
             String[] parts = timeStr.replace("시", "").replace("분", "").split(" ");
             int hour = Integer.parseInt(parts[0].trim());
             int min = 0;
             if (parts.length > 1) min = Integer.parseInt(parts[1].trim());
+            
             String timeFormat = String.format("%02d:%02d:00", hour, min);
             return Time.valueOf(timeFormat);
         } catch (Exception e) {
+            // 파싱 실패 시 null 반환 -> addSchedule에서 처리됨
             return null;
         }
     }
