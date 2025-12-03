@@ -95,4 +95,21 @@ public class RoutineDao {
             return ps.executeUpdate() > 0;
         } catch (SQLException e) { e.printStackTrace(); return false; }
     }
+    public boolean updateRoutineTime(long userId, long routineId, String newStartTime) {
+        String sql = "UPDATE routines SET start_time = ? WHERE id = ? AND user_id = ?";
+        
+        // (참고: DBConnection 예외 처리는 추후 수정 단계에서 보완 예정)
+        try (Connection con = DBConnection.getConnection(); 
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            
+            ps.setString(1, newStartTime);
+            ps.setLong(2, routineId);
+            ps.setLong(3, userId);
+            
+            return ps.executeUpdate() > 0; // 업데이트 성공 시 true 반환
+        } catch (SQLException e) { 
+            e.printStackTrace(); 
+            return false; 
+        }
+    }
 }
