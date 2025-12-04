@@ -12,6 +12,8 @@ public class TodoItem {
     
     public TodoItem(long groupId,String t, boolean done, boolean over, String time,
     		String endTime,String category) {
+    	
+    //[FIX] 여러 날 일정 확인을 위해 groupId 추가.
     	this.groupId=groupId;
         this.text = t;
         this.done = done;

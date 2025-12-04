@@ -373,12 +373,10 @@ public class TodoPanel extends JPanel implements ActionListener {
             // CalendarPanel의 데이터 맵을 참조 (ScheduleDialog가 요구함)
             Map<String, Vector<ScheduleItem>> globalScheduleData = calendarPanel.getScheduleData();
             
-            // ScheduleDialog 띄우기
-            // (주의: 여기서는 임시로 null을 넘기는 부분들이 있습니다. ScheduleDialog가 CalendarPanel 전용으로 설계되었기 때문입니다.
-            //  TodoPanel에서 독립적으로 쓰려면 ScheduleDialog를 조금 수정하거나, 아래처럼 필요한 부분만 맞춰서 넘겨야 합니다.)
+      
             ScheduleDialog dialog = new ScheduleDialog(
                 parent, title, targetDate, categories, 
-                globalScheduleData, null, null, calendarDao // currentVector/UiModel은 null로 전달 (저장 후 refreshFromCalendar로 갱신)
+                globalScheduleData, null, null, calendarDao // [FIX]currentVector/UiModel은 null로 전달 (저장 후 refreshFromCalendar로 갱신)
             );
             
             dialog.setVisible(true);
@@ -482,13 +480,9 @@ public class TodoPanel extends JPanel implements ActionListener {
     // [4] 기타 헬퍼 메소드
     // =============================================================
 
+ // [FIX] 카테고리 필드를 이용하여 명확하게 루틴 여부 판단
     private boolean isRoutineTodo(TodoItem item) {
-        if (item == null) return false;
-        for (int i = 0; i < routineModel.size(); i++) {
-            RoutineItem r = routineModel.get(i);
-            if (r.state != RoutineState.SKIP && item.text.equals(r.text)) return true;
-        }
-        return false;
+        return item != null && "루틴".equals(item.category);
     }
 
     private RoutineItem findRoutineByText(String text) {
@@ -506,7 +500,9 @@ public class TodoPanel extends JPanel implements ActionListener {
 
     private void removeTodoFromModel(DefaultListModel<TodoItem> model, String text) {
         for (int i = model.size() - 1; i >= 0; i--) {
-            if ("루틴".equals(model.get(i).category) && text.equals(model.get(i).text)) {
+            TodoItem item = model.get(i);
+            // [FIX] 카테고리가 루틴이고, 텍스트가 일치하는지(공백 제거) 확인 후 삭제
+            if ("루틴".equals(item.category) && text.trim().equals(item.text.trim())) {
                 model.remove(i);
             }
         }
@@ -550,9 +546,16 @@ public class TodoPanel extends JPanel implements ActionListener {
                 checkBox.setSelected(value.done);
                 textLabel.setText((value.time != null ? "[" + value.time + "] " : "") + value.text);
                 
+                //[FIX] 컬러 렌더링 수정
                 Color fg = Color.BLACK;
+                
+                // 1. 밀린 할 일(over)이면 빨간색
                 if (value.over) fg = Color.RED;
-                if (isRoutineTodo(value)) fg = new Color(0, 150, 0);
+                
+                // 2. 루틴이면 파란색 (가독성을 위해 파란색으로 변경)
+                if (isRoutineTodo(value)) {
+                    fg = Color.BLUE; 
+                }
 
                 if (isSelected) {
                     setBackground(list.getSelectionBackground());

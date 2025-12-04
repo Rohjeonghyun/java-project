@@ -98,7 +98,7 @@ public class RoutineDao {
     public boolean updateRoutineTime(long userId, long routineId, String newStartTime) {
         String sql = "UPDATE routines SET start_time = ? WHERE id = ? AND user_id = ?";
         
-        // (참고: DBConnection 예외 처리는 추후 수정 단계에서 보완 예정)
+        
         try (Connection con = DBConnection.getConnection(); 
              PreparedStatement ps = con.prepareStatement(sql)) {
             
