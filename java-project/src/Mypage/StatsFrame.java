@@ -163,70 +163,107 @@ public class StatsFrame extends JFrame {
 
     //통계쿼리
     
-    //todo체크 통계(PENDING / DONE / CANCELED)
+ // [FIX] 할 일(Todo) + 루틴(Routine) 합산 통계 (완료거나 미완료 개수 표시)
     private void loadTodoStats(LocalDate start, LocalDate end) throws Exception {
-        String sql = "SELECT status, COUNT(*) AS cnt " +
-                     "FROM todos " +
-                     "WHERE user_id = ? AND due_date BETWEEN ? AND ? " +
-                     "GROUP BY status";
+        int totalDone = 0;
+        int totalPending = 0; // 미완료 (Pending, Skipped 등 포함)
 
-        List<String> labels = new ArrayList<>();
-        List<Integer> values = new ArrayList<>();
+        // 할 일(Todo) 통계 조회
+        String sqlTodo = "SELECT status, COUNT(*) AS cnt FROM todos " +
+                         "WHERE user_id = ? AND due_date BETWEEN ? AND ? GROUP BY status";
 
         try (Connection con = DBConnection.getConnection();
-             PreparedStatement ps = con.prepareStatement(sql)) {
-
+             PreparedStatement ps = con.prepareStatement(sqlTodo)) {
+            
             ps.setLong(1, userId);
             ps.setDate(2, java.sql.Date.valueOf(start));
             ps.setDate(3, java.sql.Date.valueOf(end));
-
+            
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     String status = rs.getString("status");
                     int cnt = rs.getInt("cnt");
-
-                    String label;
-                    switch (status) {
-                        case "DONE":
-                            label = "완료";
-                            break;
-                        case "CANCELED":
-                            label = "취소";
-                            break;
-                        case "PENDING":
-                        default:
-                            label = "미완료";
-                            break;
+                    
+                    if ("DONE".equalsIgnoreCase(status)) {
+                        totalDone += cnt;
+                    } else {
+                        // PENDING, CANCELED 등은 미완료로 간주하도록 함
+                        totalPending += cnt;
                     }
-
-                    labels.add(label);
-                    values.add(cnt);
                 }
             }
         }
 
-        if (labels.isEmpty()) {
+        // 루틴(Routine) 통계 조회 (routine_occurrences 테이블)
+        String sqlRoutine = "SELECT ro.status, COUNT(*) AS cnt " +
+                            "FROM routine_occurrences ro " +
+                            "JOIN routines r ON ro.routine_id = r.id " +
+                            "WHERE r.user_id = ? AND ro.occ_date BETWEEN ? AND ? " +
+                            "GROUP BY ro.status";
+                            
+        try (Connection con = DBConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(sqlRoutine)) {
+             
+            ps.setLong(1, userId);
+            ps.setDate(2, java.sql.Date.valueOf(start));
+            ps.setDate(3, java.sql.Date.valueOf(end));
+            
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    String status = rs.getString("status");
+                    int cnt = rs.getInt("cnt");
+                    
+                    if ("DONE".equalsIgnoreCase(status)) {
+                        totalDone += cnt;
+                    } else {
+                        // SKIPPED, PENDING 등은 미완료로 간주하도록 함
+                        totalPending += cnt;
+                    }
+                }
+            }
+        }
+
+        // 차트에 데이터 적용 부분
+        if (totalDone == 0 && totalPending == 0) {
             chartPanel.setData(null, null);
-            chartPanel.setMessage("해당 월에 할 일 데이터가 없습니다.");
+            chartPanel.setMessage("해당 월에 데이터가 없습니다.");
         } else {
-            chartPanel.setData(
-                    labels.toArray(new String[0]),
-                    values.stream().mapToInt(i -> i).toArray()
-            );
+            String[] labels = { "완료", "미완료" };
+            int[] values = { totalDone, totalPending };
+            chartPanel.setData(labels, values);
             chartPanel.setMessage(null);
         }
     }
 
-    //루틴체크 통계(PENDING / DONE / SKIPPED)
+ // [FIX] 루틴체크 통계 (완료 / 건너뜀 / 미실행 계산 로직 개선)
     private void loadRoutineStats(LocalDate start, LocalDate end) throws Exception {
+        // 선택한 달의 총 날짜 수 계산 (예: 30일, 31일)
+        long daysBetween = java.time.temporal.ChronoUnit.DAYS.between(start, end) + 1;
+
+        // 현재 등록된 루틴 개수 조회 (ex: 매일 하는 루틴이 3개라면)
+        int routineCount = 0;
+        String sqlCount = "SELECT COUNT(*) FROM routines WHERE user_id = ?";
+        try (Connection con = DBConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(sqlCount)) {
+            ps.setLong(1, userId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) routineCount = rs.getInt(1);
+            }
+        }
+
+        // '예상되는' 총 루틴 실행 횟수 (= 루틴 개수 * 날짜 수 로 계산함)
+        long totalExpected = routineCount * daysBetween;
+
+        // 실제 기록된(완료/스킵) 횟수 DB 조회 쿼리문
         String sql = "SELECT o.status, COUNT(*) AS cnt " +
                      "FROM routine_occurrences o " +
                      "JOIN routines r ON o.routine_id = r.id " +
                      "WHERE r.user_id = ? AND o.occ_date BETWEEN ? AND ? " +
                      "GROUP BY o.status";
 
-        List<String> labels = new ArrayList<>();
-        List<Integer> values = new ArrayList<>();
+        int doneCnt = 0;
+        int skipCnt = 0;
+        int recordedTotal = 0;
 
         try (Connection con = DBConnection.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
@@ -239,40 +276,36 @@ public class StatsFrame extends JFrame {
                 while (rs.next()) {
                     String status = rs.getString("status");
                     int cnt = rs.getInt("cnt");
-
-                    String label;
-                    switch (status) {
-                        case "DONE":
-                            label = "완료";
-                            break;
-                        case "SKIPPED":
-                            label = "건너뜀";
-                            break;
-                        case "PENDING":
-                        default:
-                            label = "미실행";
-                            break;
+                    
+                    // DB에는 "SKIP"으로 저장됨. (Enum 이름과 일치시킴)
+                    if ("DONE".equalsIgnoreCase(status)) {
+                        doneCnt = cnt;
+                    } else if ("SKIP".equalsIgnoreCase(status) || "SKIPPED".equalsIgnoreCase(status)) {
+                        skipCnt = cnt;
                     }
-
-                    labels.add(label);
-                    values.add(cnt);
+                    recordedTotal += cnt;
                 }
             }
         }
 
-        if (labels.isEmpty()) {
+        // '미실행' 횟수 계산 (전체 해야 할 횟수 - 기록된 횟수로)
+        long pendingCnt = totalExpected - recordedTotal;
+        if (pendingCnt < 0) pendingCnt = 0; // 음수 방지로 필요함
+
+        // 차트에 데이터 적용
+        if (totalExpected == 0) {
             chartPanel.setData(null, null);
-            chartPanel.setMessage("해당 월에 루틴 데이터가 없습니다.");
+            chartPanel.setMessage("등록된 루틴이 없습니다.");
         } else {
-            chartPanel.setData(
-                    labels.toArray(new String[0]),
-                    values.stream().mapToInt(i -> i).toArray()
-            );
+            String[] labels = { "완료", "건너뜀", "미실행" };
+            int[] values = { doneCnt, skipCnt, (int)pendingCnt };
+            
+            chartPanel.setData(labels, values);
             chartPanel.setMessage(null);
         }
     }
     
-    //카테고리별 todo 개수 비율
+    //[FIX] 카테고리별 todo 개수 비율
     private void loadCategoryStats(LocalDate start, LocalDate end) throws Exception {
         String sql =
                 "SELECT COALESCE(c.name, '(미지정)') AS cat_name, COUNT(*) AS cnt " +
@@ -313,7 +346,7 @@ public class StatsFrame extends JFrame {
         }
     }
 
-    // todo체크 통계(DONE/NOT_DONE)
+    // [FIX} todo체크 통계(DONE/NOT_DONE)
     private void loadTodoCheckStats(LocalDate start, LocalDate end) throws Exception {
         String sql =
                 "SELECT " +
