@@ -87,15 +87,13 @@ public class TestFile extends JFrame {
         int curHour = now.getHour();
         int curMin = now.getMinute();
 
-        // 1. 리마인더 설정 조회
         String settingSql = "SELECT on_off, remind_time FROM reminder_settings WHERE user_id = ?";
-        // 2. 오늘 일기 작성 여부 조회
         String diaryCheckSql = "SELECT count(*) FROM diary_entries WHERE user_id = ? AND entry_date = CURDATE()";
 
         try (Connection con = DBConnection.getConnection();
              PreparedStatement psSetting = con.prepareStatement(settingSql)) {
 
-            psSetting.setLong(1, userId); // (주의) TestFile 클래스의 멤버변수 userId 사용
+            psSetting.setLong(1, userId);
             
             try (ResultSet rs = psSetting.executeQuery()) {
                 if (rs.next()) {
@@ -106,17 +104,16 @@ public class TestFile extends JFrame {
                     if (isOn && dbTime != null) {
                         LocalTime targetTime = dbTime.toLocalTime();
 
-                        // [중요] 시(Hour)와 분(Minute)이 일치하는지 확인
+                        // 시(Hour)와 분(Minute)이 일치하는지 확인
                         if (targetTime.getHour() == curHour && targetTime.getMinute() == curMin) {
                             
-                            // 3. 일기를 아직 안 썼는지 확인
+                            // 일기를 아직 안 썼는지 확인
                             try (PreparedStatement psDiary = con.prepareStatement(diaryCheckSql)) {
                                 psDiary.setLong(1, userId);
                                 try (ResultSet rsDiary = psDiary.executeQuery()) {
-                                    // 일기 개수가 0개면 (=안 썼으면) 알림 발생
+                                    // 일기 안 썼으면 알림 발생
                                     if (rsDiary.next() && rsDiary.getInt(1) == 0) {
                                         
-                                        // Swing UI 스레드에서 팝업 띄우기
                                         SwingUtilities.invokeLater(() -> {
                                             JOptionPane.showMessageDialog(TestFile.this, 
                                                 "오늘의 일기를 아직 작성하지 않으셨습니다.️", 
@@ -124,7 +121,7 @@ public class TestFile extends JFrame {
                                                 JOptionPane.INFORMATION_MESSAGE);
                                         });
 
-                                        // [중요] 1분 동안은 다시 알림이 뜨지 않도록 대기 (중복 알림 방지)
+                                        // 알람 중복 방지
                                         Thread.sleep(60000); 
                                     }
                                 }
