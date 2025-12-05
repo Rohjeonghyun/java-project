@@ -5,6 +5,7 @@ import java.awt.event.*;
 import java.awt.geom.Ellipse2D;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -25,9 +26,13 @@ public class MyPageFrame extends JPanel implements ActionListener {
     private JButton btnLogout;
     private JButton btnDeleteAccount;
 
-    // 로그인한 사용자 id (지금은 1번 고정)
-    private long userId = 1L;
+    // 로그인한 사용자 id
+    private long userId;
 
+    //left 프로필란에 표시할 라벨->필드로 올림(DB)
+    private JLabel lblName;
+    private JLabel lblBirth;
+    
     //색상
     private static final Color BG_OUTER    = new Color(236, 240, 245);
     private static final Color BG_CARD     = Color.WHITE;
@@ -38,8 +43,9 @@ public class MyPageFrame extends JPanel implements ActionListener {
     private static final Color TEXT_SUB    = new Color(110, 110, 110);
     private static final Color PROFILE_BLUE = new Color(70, 120, 210);
 
-    public MyPageFrame() {
-
+    public MyPageFrame(long userId) {
+    	this.userId = userId;
+    	
         //all layout
         setLayout(new BorderLayout());
         setBackground(BG_OUTER);
@@ -127,12 +133,12 @@ public class MyPageFrame extends JPanel implements ActionListener {
             }
         });
 
-        JLabel lblName = new JLabel("사용자명");
+        lblName = new JLabel("사용자명");
         lblName.setFont(new Font("SansSerif", Font.BOLD | Font.PLAIN, 18));
         lblName.setForeground(TEXT_MAIN);
         lblName.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        JLabel lblBirth = new JLabel("생년월일 : 2000-01-01");
+        lblBirth = new JLabel("생년월일 : 2000-01-01");
         lblBirth.setFont(new Font("SansSerif", Font.BOLD | Font.PLAIN, 14));
         lblBirth.setForeground(TEXT_MAIN);
         lblBirth.setAlignmentX(Component.CENTER_ALIGNMENT);
@@ -184,6 +190,8 @@ public class MyPageFrame extends JPanel implements ActionListener {
         rightPanel.add(Box.createVerticalGlue());
 
         center.add(rightPanel);
+        
+        loadProfileFromDB();//DB->프로필 읽어서 라벨반영
     }
 
     //버튼
@@ -210,13 +218,48 @@ public class MyPageFrame extends JPanel implements ActionListener {
             profilePanel.repaint();
         }
     }
+    //DB->프로필 읽어서 라벨반영 메소드
+    private void loadProfileFromDB() {
+	String sql = "select name, birth from users where id = ?";
+    	
+    	try(Connection con = DBConnection.getConnection();
+    		PreparedStatement ps = con.prepareStatement(sql)){
+    		
+    		ps.setLong(1, userId);
+    		
+    		try(ResultSet rs = ps.executeQuery()) {
+    			if(rs.next()) {
+    				String name = rs.getString("name");
+    				String birth = rs.getString("birth");
+    			
+    			if(name == null || name.isEmpty()) {
+    				name = "사용자명";
+    			}
+    			lblName.setText(name);
+    			
+    			if(birth == null || birth.isEmpty()) {
+    				lblBirth.setText("생년월일 : -");
+    			} else { 
+    				lblBirth.setText("생년월일 : "+birth);
+    				}
+    			}
+    		}
+    		
+    	} catch(Exception e) {
+        	e.printStackTrace();
+        }
+    } 
+    //EditProfileFrame 저장 후 호출 메소드
+    public void refreshProfile() {
+    	loadProfileFromDB();
+    	}
 
     @Override
     public void actionPerformed(ActionEvent e) {
         Object src = e.getSource();
 
         if (src == btnEditProfile) {
-            new EditProfileFrame(this).setVisible(true);
+            new EditProfileFrame(this, userId).setVisible(true);
         } else if (src == btnChangePassword) {
             new ChangePasswordFrame(this, userId).setVisible(true);
         } else if (src == btnMyStats) {
@@ -273,17 +316,5 @@ public class MyPageFrame extends JPanel implements ActionListener {
                     JOptionPane.ERROR_MESSAGE
             );
         }
-    }
-
-    // 단독 실행 테스트용
-    public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> {
-            JFrame frame = new JFrame("My Page Test");
-            frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-            frame.setSize(900, 700);
-            frame.setLocationRelativeTo(null);
-            frame.setContentPane(new MyPageFrame());
-            frame.setVisible(true);
-        });
     }
 }
