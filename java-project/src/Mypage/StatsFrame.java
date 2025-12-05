@@ -38,9 +38,6 @@ public class StatsFrame extends JFrame {
     private JComboBox<String> cbType;    
     private PieChartPanel chartPanel;   
 
-    public StatsFrame(Component owner) {
-        this(owner, 1L);//test기준
-    }
 
     public StatsFrame(Component owner, long userId) {
         this.userId = userId;

@@ -19,13 +19,11 @@ public class EditProfileFrame extends JFrame {
     private JComboBox<Integer> cbDay;
 
     private long userId;
+    private MyPageFrame myPage;
 
-    public EditProfileFrame(Component owner) {
-        this(owner, 1L);
-    }
-
-    public EditProfileFrame(Component owner, long userId) {
+    public EditProfileFrame(MyPageFrame owner, long userId) {
         this.userId = userId;
+        this.myPage = owner;
 
         setTitle("프로필 변경");
         setSize(400, 250);
@@ -87,13 +85,15 @@ public class EditProfileFrame extends JFrame {
         getContentPane().setLayout(new BorderLayout());
         add(panel, BorderLayout.CENTER);
         add(bottom, BorderLayout.SOUTH);
-
+        
+        //DB 현재 사용자 데이터 로드
         loadProfileFromDB();
+        setLocationRelativeTo(owner);
     }
 
     //DB
     private void loadProfileFromDB() {
-        String sql = "SELECT name, birth_date FROM users WHERE id = ?";
+        String sql = "SELECT name, birth FROM users WHERE id = ?";
 
         try (Connection con = DBConnection.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
@@ -103,15 +103,21 @@ public class EditProfileFrame extends JFrame {
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
 
-                    txtUserName.setText(rs.getString("name"));
-
-                    Date birth = rs.getDate("birth_date");
+                    //사용자명 자동채움
+                	String name = rs.getString("name");
+                	if(name == null || name.trim().isEmpty()) {
+                		txtUserName.setText("");
+                	} else { 
+                		txtUserName.setText(name);
+                	}
+                	//생년월일 자동채움
+                    Date birth = rs.getDate("birth");
                     if (birth != null) {
                         LocalDate d = birth.toLocalDate();
                         txtYear.setText(String.valueOf(d.getYear()));
                         cbMonth.setSelectedItem(d.getMonthValue());
                         cbDay.setSelectedItem(d.getDayOfMonth());
-                    } else {
+                    } else {//기본값
                         txtYear.setText("2000");
                         cbMonth.setSelectedItem(1);
                         cbDay.setSelectedItem(1);
@@ -132,15 +138,23 @@ public class EditProfileFrame extends JFrame {
         try {
             String name = txtUserName.getText().trim();
 
-            // 연도 텍스트필드로 사용자 직접 타이핑
             int year = Integer.parseInt(txtYear.getText().trim());
             int month = (Integer) cbMonth.getSelectedItem();
             int day = (Integer) cbDay.getSelectedItem();
+            int currentYear = LocalDate.now().getYear();
 
             String birthStr = String.format("%04d-%02d-%02d", year, month, day);
             Date birthDate = Date.valueOf(birthStr);
-
-            String sql = "UPDATE users SET name=?, birth_date=? WHERE id=?";
+            
+            // 연도 1920< year <현재년도를 위한 예외처리
+            if (year < 1920 || year >= currentYear) {
+                JOptionPane.showMessageDialog(this,
+                    "올바른 연도를 입력하세요.",
+                    "입력 오류", JOptionPane.WARNING_MESSAGE);
+                return; // 저장 중단
+            }
+            
+            String sql = "UPDATE users SET name=?, birth=? WHERE id=?";
 
             try (Connection con = DBConnection.getConnection();
                  PreparedStatement ps = con.prepareStatement(sql)) {
@@ -149,7 +163,7 @@ public class EditProfileFrame extends JFrame {
                 ps.setDate(2, birthDate);
                 ps.setLong(3, userId);
 
-                int updated = ps.executeUpdate();
+                ps.executeUpdate();
 
                 JOptionPane.showMessageDialog(this,
                         "저장 완료!\nName: " + name + "\nBirth: " + birthStr);

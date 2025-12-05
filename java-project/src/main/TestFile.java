@@ -38,12 +38,13 @@ public class TestFile extends JFrame {
         if (categories.isEmpty()) {
             categories.add(new CategoryItem("기본", Color.LIGHT_GRAY));
         }
+        
         JTabbedPane tabs = new JTabbedPane();
         CalendarPanel calendarPanel = new CalendarPanel(categories, dao);
         TodoPanel todoPanel = new TodoPanel(userId, calendarPanel, categories, dao);
         tabs.addTab("Todo",     todoPanel);
         tabs.addTab("Calendar", calendarPanel);
-        tabs.addTab("MyPage",   new MyPageFrame());
+        tabs.addTab("MyPage",   new MyPageFrame(userId));//수정
         tabs.addTab("diary",    new diary(userId));
         
         tabs.addChangeListener(e -> {

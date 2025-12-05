@@ -15,10 +15,6 @@ public class ReminderFrame extends JFrame {
 
     private long userId;
 
-    public ReminderFrame(Component owner) {
-        this(owner, 1L);
-    }
-
     public ReminderFrame(Component owner, long userId) {
         this.userId = userId;
 
