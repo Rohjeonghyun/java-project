@@ -1,7 +1,5 @@
 package Mypage;
 
-// ChangePasswordFrame.java
-
 import java.awt.*;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -21,10 +19,6 @@ public class ChangePasswordFrame extends JFrame {
 	private char defaultEchoChar;
 
 	private long userId;
-
-	public ChangePasswordFrame(Component owner) {
-		this(owner, 1L);
-	}
 
 	// 생성자
 	public ChangePasswordFrame(Component owner, long userId) {
